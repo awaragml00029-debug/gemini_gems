@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, X, Download, Move, LayoutGrid, Type, Image as ImageIcon, Settings, Trash2, Grid3X3, FileText, Copy, Check, FileDown, Sparkles, Loader2, Edit3, Crop, MousePointer2, ArrowRight, Minus, Square, Circle, Palette, Ruler, BrainCircuit, MessageSquareQuote, Wand2, BookOpen, Bot, Maximize2, MoveHorizontal, MoveVertical, Scan, Minimize, Scaling, ZoomIn, Plus, RefreshCcw, FlaskConical, UserCheck } from 'lucide-react';
+import { Upload, X, Download, Move, LayoutGrid, Type, Image as ImageIcon, Settings, Trash2, Grid3X3, FileText, Copy, Check, FileDown, Sparkles, Loader2, Edit3, Crop, MousePointer2, ArrowRight, Minus, Square, Circle, Palette, Ruler, BrainCircuit, MessageSquareQuote, Wand2, BookOpen, Bot, Maximize2, MoveHorizontal, MoveVertical, Scan, Minimize, Scaling, ZoomIn, Plus, RefreshCcw, FlaskConical, UserCheck, Grid } from 'lucide-react';
 
 export default function FigurePuzzle() {
   const [images, setImages] = useState([]);
@@ -18,6 +18,10 @@ export default function FigurePuzzle() {
   const [labelColor, setLabelColor] = useState('#000000'); 
 
   const [exportWithLabels, setExportWithLabels] = useState(true);
+  // 新增：导出分辨率设置 (默认 300 DPI ~= 2480px width for A4)
+  const [exportDPI, setExportDPI] = useState(300); 
+  // 新增：辅助对齐网格开关
+  const [showGuideGrid, setShowGuideGrid] = useState(false);
 
   const [editingImageId, setEditingImageId] = useState(null);
   const [editTool, setEditTool] = useState('move'); 
@@ -41,7 +45,7 @@ export default function FigurePuzzle() {
   const [modalTitle, setModalTitle] = useState('');
   const [isGeneratingText, setIsGeneratingText] = useState(false); // Modal 内部的 loading
 
-  // 按钮独立的 Loading 状态 (修复 ReferenceError)
+  // 按钮独立的 Loading 状态
   const [isGeneratingResults, setIsGeneratingResults] = useState(false);
   const [isGeneratingMethods, setIsGeneratingMethods] = useState(false);
   const [isCheckingReview, setIsCheckingReview] = useState(false);
@@ -230,10 +234,20 @@ export default function FigurePuzzle() {
   const generateCanvas = async (forExport = false) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    const totalWidth = 2480; 
+    
+    // 计算导出宽度：基于DPI (A4 width approx 8.27 inches)
+    // 150 DPI ~ 1240px
+    // 300 DPI ~ 2480px
+    // 600 DPI ~ 4960px
+    const widthMap = { 150: 1240, 300: 2480, 600: 4960 };
+    const totalWidth = widthMap[exportDPI] || 2480; 
+    
     const { layout, totalRows } = calculateGridLayout(images, columns);
-    const scaleFactor = 2; 
+    
+    // Scale factor for gap relative to 300DPI baseline (to keep visual proportions consistent)
+    const scaleFactor = totalWidth / 1240; // Approx 2x for 300DPI vs screen gap
     const effectiveGap = gap * scaleFactor;
+    
     const cellWidth = (totalWidth - (columns - 1) * effectiveGap) / columns;
     const cellHeight = cellWidth / aspectRatio;
     const totalHeight = totalRows * cellHeight + (totalRows - 1) * effectiveGap;
@@ -312,7 +326,10 @@ export default function FigurePuzzle() {
       
       if (item.annotations) {
         item.annotations.forEach(anno => {
+          // Adjust scale for higher DPI exports
+          const exportBaseScale = totalWidth / 2480; // normalize to 300DPI base
           const annoScale = (Math.min(w, h) / 500) * 2; 
+          
           const sx = centerX + (anno.x * annoScale);
           const sy = centerY + (anno.y * annoScale);
           const ex = anno.endX !== undefined ? centerX + (anno.endX * annoScale) : 0;
@@ -352,13 +369,19 @@ export default function FigurePuzzle() {
       
       if (shouldDrawLabels && originalIndex !== -1) {
         const labelText = getLabelText(originalIndex);
-        const fontSize = labelSize * 1.5; 
+        // Label size should scale with DPI
+        const dpiScale = totalWidth / 2480; 
+        const fontSize = labelSize * 1.5 * dpiScale; 
+        
         ctx.font = `${labelWeight} ${fontSize}px ${fontFamily}`;
         ctx.fillStyle = labelColor; 
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
-        const labelX = x + (labelOffset * 1.5);
-        const labelY = y + (labelOffset * 1.5); 
+        
+        // Label offset also needs to scale
+        const scaledOffset = labelOffset * 1.5 * dpiScale;
+        const labelX = x + scaledOffset;
+        const labelY = y + scaledOffset; 
         ctx.fillText(labelText, labelX, labelY);
       }
     }
@@ -682,9 +705,25 @@ export default function FigurePuzzle() {
               </div>
             </section>
              <hr className="border-slate-100" />
+             {/* 新增: 导出设置 (DPI 选择) */}
              <section>
                <h3 className="flex items-center gap-2 font-bold text-slate-800 mb-4 text-sm uppercase tracking-wider"><Settings size={16} /> 导出设置</h3>
-               <label className="flex items-center justify-between cursor-pointer p-2 hover:bg-slate-50 rounded"><span className="text-sm text-slate-700">导出时包含标签</span><input type="checkbox" checked={exportWithLabels} onChange={(e) => setExportWithLabels(e.target.checked)} className="accent-blue-600 w-4 h-4" /></label>
+               <div className="space-y-3">
+                 <label className="flex items-center justify-between cursor-pointer p-2 hover:bg-slate-50 rounded"><span className="text-sm text-slate-700">导出时包含标签</span><input type="checkbox" checked={exportWithLabels} onChange={(e) => setExportWithLabels(e.target.checked)} className="accent-blue-600 w-4 h-4" /></label>
+                 
+                 <div>
+                   <label className="text-sm text-slate-600 mb-1 block">分辨率 (DPI)</label>
+                   <select 
+                     value={exportDPI} 
+                     onChange={(e) => setExportDPI(parseInt(e.target.value))}
+                     className="w-full p-2 bg-slate-50 border border-slate-200 rounded-md text-sm"
+                   >
+                     <option value={150}>150 DPI (草稿/屏幕)</option>
+                     <option value={300}>300 DPI (标准投稿)</option>
+                     <option value={600}>600 DPI (高清打印)</option>
+                   </select>
+                 </div>
+               </div>
              </section>
             
             <section className="pt-4 border-t border-slate-100">
@@ -693,15 +732,27 @@ export default function FigurePuzzle() {
           </div>
         </aside>
 
-        <div className="flex-1 bg-slate-100 p-8 overflow-auto flex justify-center items-start">
+        <div className="flex-1 bg-slate-100 p-8 overflow-auto flex justify-center items-start relative">
+          {/* Visual Guide Grid Overlay */}
+          {showGuideGrid && (
+            <div 
+              className="absolute inset-0 pointer-events-none z-0" 
+              style={{ 
+                backgroundImage: 'linear-gradient(to right, #e2e8f0 1px, transparent 1px), linear-gradient(to bottom, #e2e8f0 1px, transparent 1px)',
+                backgroundSize: '20px 20px',
+                opacity: 0.5
+              }}
+            />
+          )}
+
           {images.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400 border-2 border-dashed border-slate-300 rounded-xl p-12 w-full max-w-2xl bg-white/50">
+            <div className="flex flex-col items-center justify-center h-full text-slate-400 border-2 border-dashed border-slate-300 rounded-xl p-12 w-full max-w-2xl bg-white/50 z-10">
               <ImageIcon size={64} className="mb-4 opacity-50" />
               <h3 className="text-lg font-medium text-slate-600">暂无图片</h3>
               <p className="text-sm mb-6">点击右上角“添加图片”或直接将图片文件拖入</p>
             </div>
           ) : (
-            <div className="bg-white shadow-2xl transition-all duration-300 ease-in-out" style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, 1fr)`, gap: `${gap}px`, padding: '20px', width: '100%', maxWidth: '1000px', gridAutoFlow: 'dense', backgroundColor: backgroundColor }}>
+            <div className="bg-white shadow-2xl transition-all duration-300 ease-in-out z-10" style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, 1fr)`, gap: `${gap}px`, padding: '20px', width: '100%', maxWidth: '1000px', gridAutoFlow: 'dense', backgroundColor: backgroundColor }}>
               {images.map((img, index) => (
                 <div 
                   key={img.id} 
@@ -717,6 +768,7 @@ export default function FigurePuzzle() {
                     backgroundColor: backgroundColor 
                   }}
                 >
+                  {/* ... (Existing image rendering logic) ... */}
                   <div 
                     className="w-full h-full overflow-hidden relative pointer-events-none"
                     style={{ padding: `${img.padding || 0}%` }}
@@ -766,7 +818,7 @@ export default function FigurePuzzle() {
 
                     <div className="h-4 w-px bg-slate-300 mx-1"></div>
                     
-                    {/* Zoom Controls (New) */}
+                    {/* Zoom Controls */}
                     <div className="flex items-center gap-1">
                       <button onClick={() => updateImageScale(index, -0.1)} className="text-slate-500 hover:text-blue-600" title="Zoom Out"><ZoomIn size={12} className="rotate-180" /></button>
                       <button onClick={() => updateImageScale(index, 0.1)} className="text-slate-500 hover:text-blue-600" title="Zoom In"><ZoomIn size={12} /></button>
@@ -796,6 +848,18 @@ export default function FigurePuzzle() {
               ))}
             </div>
           )}
+          
+          {/* Guide Grid Toggle Button - Floating in the corner */}
+          <div className="absolute bottom-6 right-6 z-20">
+             <button 
+               onClick={() => setShowGuideGrid(!showGuideGrid)}
+               className={`flex items-center gap-2 px-3 py-2 rounded-full shadow-lg transition-colors ${showGuideGrid ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+               title="切换辅助网格线"
+             >
+               <Grid size={18} />
+               <span className="text-sm font-medium">{showGuideGrid ? '网格开启' : '网格关闭'}</span>
+             </button>
+          </div>
         </div>
 
         {/* Legend Builder Modal (Reused for Methods & Reviewer) */}
