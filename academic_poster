@@ -31,38 +31,56 @@ import {
   Move,
   LayoutTemplate,
   X,
-  ImageIcon as LogoIcon
+  ImageIcon as LogoIcon,
+  Languages,
+  FileImage,
+  Key,
+  Table
 } from 'lucide-react';
 
 // --- 配置与工具 ---
 
 const THEMES = {
+  geminiTeal: {
+    id: 'geminiTeal',
+    name: 'Gemini Teal (Classic)',
+    headerGradient: 'bg-[#0097a7]', 
+    blockHeader: 'bg-white text-[#0097a7] border-b-4 border-[#0097a7]', 
+    bg: 'bg-[#e0e0e0]', 
+    border: 'border-transparent',
+    font: 'font-lato', 
+    cardShadow: 'shadow-lg',
+    isGeminiStyle: true 
+  },
   modernBlue: {
     id: 'modernBlue',
     name: '科研蓝 (Science Blue)',
     headerGradient: 'bg-gradient-to-r from-blue-900 to-blue-800',
     blockHeader: 'bg-blue-800 text-white',
-    bg: 'bg-slate-50',
+    bg: 'bg-slate-100',
     border: 'border-blue-900',
-    font: 'font-sans'
+    font: 'font-sans',
+    cardShadow: 'shadow-md'
   },
   ecoGreen: {
     id: 'ecoGreen',
     name: '生物绿 (Bio Green)',
     headerGradient: 'bg-gradient-to-r from-emerald-800 to-emerald-700',
     blockHeader: 'bg-emerald-800 text-white',
-    bg: 'bg-stone-50',
+    bg: 'bg-stone-100',
     border: 'border-emerald-900',
-    font: 'font-serif'
+    font: 'font-serif',
+    cardShadow: 'shadow-md'
   },
   universityRed: {
     id: 'universityRed',
-    name: '大学红 (Uni Red)',
-    headerGradient: 'bg-gradient-to-r from-red-900 to-red-800',
-    blockHeader: 'bg-red-900 text-white',
-    bg: 'bg-white',
-    border: 'border-red-900',
-    font: 'font-sans'
+    name: 'MIT Red',
+    headerGradient: 'bg-[#a31f34]',
+    blockHeader: 'bg-[#a31f34] text-white',
+    bg: 'bg-gray-100',
+    border: 'border-[#a31f34]',
+    font: 'font-sans',
+    cardShadow: 'shadow-md'
   },
   darkMode: {
     id: 'darkMode',
@@ -71,7 +89,8 @@ const THEMES = {
     blockHeader: 'bg-slate-800 text-blue-200 border-l-4 border-blue-400',
     bg: 'bg-slate-700 text-white', 
     border: 'border-slate-600',
-    font: 'font-sans'
+    font: 'font-sans',
+    cardShadow: 'shadow-none'
   }
 };
 
@@ -85,16 +104,16 @@ const LAYOUT_TEMPLATES = {
     cols: 3,
     data: [
       [
-        { id: 'b1', type: 'text', title: 'Abstract', content: '输入 DOI 后，AI 将自动从数据库拉取并重组摘要内容。' },
-        { id: 'b2', type: 'text', title: 'Introduction', content: '在这里介绍研究背景。您可以输入简单的要点，然后使用 AI 将其扩展为通顺的段落。' },
-        { id: 'b3', type: 'text', title: 'Methods', content: '描述您的研究设计。海报通常需要简洁的方法描述。' },
+        { id: 'b1', type: 'text', title: 'Abstract', content: '输入 DOI 后，AI 将自动从数据库拉取并重组摘要内容。\n\n**支持 Markdown**: 您可以加粗强调 **关键结论**。' },
+        { id: 'b2', type: 'text', title: 'Introduction', content: '- 研究背景一：当前技术的局限性\n- 研究背景二：**新方法**的必要性\n- 研究背景三：本文的主要贡献' },
+        { id: 'b3', type: 'text', title: 'Methods', content: '描述您的研究设计。\n\n| 方法 | 准确率 | 速度 |\n|---|---|---|\n| 传统 | 85% | 慢 |\n| 本文 | **98%** | **快** |' },
       ],
       [
-        { id: 'b4', type: 'image', title: 'Results (Figure)', content: 'Figure 1. Performance comparison between proposed method and baseline.', imageSrc: '' },
-        { id: 'b5', type: 'text', title: 'Results (Discussion)', content: '展示您的主要发现。\n\n- 关键发现点 1\n- 关键发现点 2' },
+        { id: 'b4', type: 'image', title: 'Results (Figure)', content: 'Figure 1. Performance comparison.', imageSrc: '' },
+        { id: 'b5', type: 'text', title: 'Results (Discussion)', content: '展示您的主要发现。\n\n1. 关键发现点 1\n2. 关键发现点 2' },
       ],
       [
-        { id: 'b6', type: 'text', title: 'Conclusion', content: '总结研究的主要结论及其意义。讨论局限性和未来的研究方向。' },
+        { id: 'b6', type: 'text', title: 'Conclusion', content: '总结研究的主要结论及其意义。' },
         { id: 'b7', type: 'text', title: 'References', content: '1. Smith, J. et al. (2023). Journal of Science.\n2. Doe, A. (2022). Academic Review.' },
       ]
     ]
@@ -110,7 +129,7 @@ const LAYOUT_TEMPLATES = {
       ],
       [
         { id: 'v4', type: 'image', title: 'Main Results', content: 'Figure 1. Key visual evidence.', imageSrc: '' },
-        { id: 'v5', type: 'image', title: 'Secondary Data', content: 'Table 1. Statistical analysis.', imageSrc: '' },
+        { id: 'v5', type: 'image', title: 'Secondary Data', content: '| Metrics | Value |\n|---|---|\n| AP | 0.85 |\n| Recall | 0.92 |', imageSrc: '' },
         { id: 'v6', type: 'text', title: 'Discussion', content: '结果讨论...' },
       ]
     ]
@@ -139,6 +158,149 @@ const INITIAL_FOOTER = {
   contact: "Email: author@university.edu | Web: www.lab-site.com"
 };
 
+// --- Markdown Renderer Component ---
+// 自定义轻量级 Markdown 渲染器，支持加粗、列表、表格
+const MarkdownRenderer = ({ content, className, isDarkMode }) => {
+  if (!content) return null;
+
+  // 1. Split into blocks
+  const lines = content.split('\n');
+  const elements = [];
+  
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    
+    // Table detection (lines start and end with |)
+    if (line.startsWith('|') && line.endsWith('|')) {
+      const tableRows = [];
+      while (i < lines.length && lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
+        tableRows.push(lines[i].trim());
+        i++;
+      }
+      elements.push({ type: 'table', rows: tableRows });
+      continue;
+    }
+    
+    // Unordered List detection
+    if (line.startsWith('- ') || line.startsWith('* ')) {
+      const listItems = [];
+      while (i < lines.length && (lines[i].trim().startsWith('- ') || lines[i].trim().startsWith('* '))) {
+        listItems.push(lines[i].trim().substring(2));
+        i++;
+      }
+      elements.push({ type: 'ul', items: listItems });
+      continue;
+    }
+
+    // Ordered List detection (1. )
+    if (/^\d+\.\s/.test(line)) {
+      const listItems = [];
+      while (i < lines.length && /^\d+\.\s/.test(lines[i].trim())) {
+        listItems.push(lines[i].trim().replace(/^\d+\.\s/, ''));
+        i++;
+      }
+      elements.push({ type: 'ol', items: listItems });
+      continue;
+    }
+    
+    // Header detection
+    if (line.startsWith('#')) {
+      const level = line.match(/^#+/)[0].length;
+      elements.push({ type: 'header', level, text: line.substring(level).trim() });
+      i++;
+      continue;
+    }
+
+    // Paragraph (default)
+    if (line.length > 0) {
+        elements.push({ type: 'paragraph', text: line });
+    } else {
+        elements.push({ type: 'break' });
+    }
+    i++;
+  }
+
+  // Inline render: bold, italic
+  const renderInline = (text) => {
+    // 简单的正则替换，处理 **bold** 和 *italic*
+    const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={index} className="font-bold">{part.slice(2, -2)}</strong>;
+      }
+      if (part.startsWith('*') && part.endsWith('*')) {
+        return <em key={index} className="italic">{part.slice(1, -1)}</em>;
+      }
+      return part;
+    });
+  };
+
+  return (
+    <div className={className}>
+      {elements.map((el, idx) => {
+        if (el.type === 'header') {
+           // h1->h3 usually in poster context
+           return <div key={idx} className={`font-bold my-2 leading-tight ${el.level === 1 ? 'text-[1.3em]' : 'text-[1.1em]'}`}>{renderInline(el.text)}</div>
+        }
+        if (el.type === 'ul') {
+          return (
+            <ul key={idx} className="list-disc pl-[1.2em] my-2 space-y-1 marker:opacity-70">
+              {el.items.map((item, ii) => <li key={ii}>{renderInline(item)}</li>)}
+            </ul>
+          );
+        }
+        if (el.type === 'ol') {
+          return (
+            <ol key={idx} className="list-decimal pl-[1.2em] my-2 space-y-1 marker:opacity-70">
+              {el.items.map((item, ii) => <li key={ii}>{renderInline(item)}</li>)}
+            </ol>
+          );
+        }
+        if (el.type === 'table') {
+           if (el.rows.length < 2) return null;
+           // Parse header and body
+           // row[0] is header, row[1] is separator (skip), row[2+] body
+           const headerRow = el.rows[0].split('|').filter(c => c).map(c => c.trim());
+           // Skip row index 1 if it looks like separators ---|---
+           const bodyStart = el.rows[1].includes('-') ? 2 : 1;
+           const bodyRows = el.rows.slice(bodyStart).map(r => r.split('|').filter(c => c).map(c => c.trim())); 
+           
+           return (
+             <div key={idx} className={`my-4 overflow-hidden rounded-lg border ${isDarkMode ? 'border-gray-600' : 'border-gray-300/60'}`}>
+               <table className="w-full text-left border-collapse">
+                 <thead className={isDarkMode ? 'bg-white/10' : 'bg-black/5'}>
+                   <tr>
+                     {headerRow.map((h, hi) => (
+                       <th key={hi} className={`p-2 border-b font-bold ${isDarkMode ? 'border-gray-600' : 'border-gray-300/60'} first:pl-3`}>
+                         {renderInline(h)}
+                       </th>
+                     ))}
+                   </tr>
+                 </thead>
+                 <tbody>
+                   {bodyRows.map((row, ri) => (
+                     <tr key={ri} className={`border-b last:border-0 ${isDarkMode ? 'border-gray-700 odd:bg-white/5' : 'border-gray-300/30 odd:bg-black/[0.02]'}`}>
+                        {row.map((c, ci) => <td key={ci} className="p-2 first:pl-3">{renderInline(c)}</td>)}
+                     </tr>
+                   ))}
+                 </tbody>
+               </table>
+             </div>
+           );
+        }
+        if (el.type === 'paragraph') {
+            return <p key={idx} className="mb-2 last:mb-0 leading-relaxed">{renderInline(el.text)}</p>
+        }
+        if (el.type === 'break') {
+            return <div key={idx} className="h-2"></div>
+        }
+        return null;
+      })}
+    </div>
+  );
+};
+
 export default function AcademicPosterGenerator() {
   // State
   const [header, setHeader] = useState(INITIAL_HEADER);
@@ -147,12 +309,14 @@ export default function AcademicPosterGenerator() {
   const [columns, setColumns] = useState(JSON.parse(JSON.stringify(LAYOUT_TEMPLATES.classic.data)));
   
   const [loading, setLoading] = useState(false);
+  const [imgGenerating, setImgGenerating] = useState(false);
   const [error, setError] = useState(null);
-  const [activeTheme, setActiveTheme] = useState(THEMES.modernBlue);
+  const [activeTheme, setActiveTheme] = useState(THEMES.geminiTeal); // 默认改为 Gemini 主题
   
   // Customization State
-  const [customBg, setCustomBg] = useState(''); // 自定义背景色
+  const [customColor, setCustomColor] = useState(''); // 自定义主题色 (Primary Color)
   const [logos, setLogos] = useState({ left: '', right: '' }); // 左右 Logo
+  const [userApiKey, setUserApiKey] = useState(''); // 用户手动输入的 API Key
   
   // Layout
   const [layoutCols, setLayoutCols] = useState(3);
@@ -162,10 +326,32 @@ export default function AcademicPosterGenerator() {
   const [scale, setScale] = useState(0.12); 
   const previewContainerRef = useRef(null);
   const [aiLoading, setAiLoading] = useState({});
+  // 存储每个 Block 的语言偏好: { [blockId]: 'zh' | 'en' }
+  const [blockLanguages, setBlockLanguages] = useState({});
 
   // Drag & Drop State
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOverItem, setDragOverItem] = useState(null);
+
+  // --- Load Fonts & Libs ---
+  useEffect(() => {
+    // html2canvas
+    const script = document.createElement('script');
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+    script.async = true;
+    document.body.appendChild(script);
+
+    // Google Fonts (Lato & Roboto) for Gemini Style
+    const link = document.createElement('link');
+    link.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&family=Roboto+Mono:wght@400;500&display=swap";
+    link.rel = "stylesheet";
+    document.head.appendChild(link);
+
+    return () => {
+      document.body.removeChild(script);
+      document.head.removeChild(link);
+    }
+  }, []);
 
   // --- 模板应用 ---
   const applyTemplate = (templateKey) => {
@@ -178,12 +364,13 @@ export default function AcademicPosterGenerator() {
     
     setLayoutCols(template.cols);
     setColumns(newCols);
+    // 重置语言偏好
+    setBlockLanguages({});
   };
 
   // --- 布局列数变更处理 ---
   useEffect(() => {
     // 仅当列数真的变化且与当前列数不符时才重新分配
-    // 这避免了手动调整 col 后被重置，但也支持通过 layoutCols 状态驱动变化
     if (columns.length === layoutCols) return;
 
     const allBlocks = columns.flat();
@@ -199,7 +386,8 @@ export default function AcademicPosterGenerator() {
 
   // --- Gemini API ---
   const callGeminiAPI = async (prompt) => {
-    const apiKey = ""; 
+    // 优先使用用户输入的 Key，如果为空则尝试使用环境自动注入的 Key（空字符串占位符）
+    const apiKey = userApiKey || ""; 
     try {
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
@@ -209,7 +397,14 @@ export default function AcademicPosterGenerator() {
           body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
         }
       );
-      if (!response.ok) throw new Error(`API Error: ${response.status}`);
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+           throw new Error("API Key 无效或缺失。请在左侧设置中输入您的 Gemini API Key。");
+        }
+        throw new Error(`API Error: ${response.status}`);
+      }
+      
       const json = await response.json();
       return json.candidates?.[0]?.content?.parts?.[0]?.text || "AI 生成失败，请重试。";
     } catch (error) {
@@ -222,6 +417,7 @@ export default function AcademicPosterGenerator() {
     setAiLoading(prev => ({ ...prev, [blockId]: true }));
     setError(null);
     const contextTitle = header.title;
+    const targetLang = blockLanguages[blockId] === 'zh' ? 'Simplified Chinese' : 'English';
     
     let prompt = "";
     if (!currentText || currentText.length < 10) {
@@ -230,7 +426,7 @@ Task: Write a draft for the "${sectionTitle}" section of an academic poster base
 Requirements:
 1. Keep it concise, professional.
 2. Use bullet points where appropriate.
-3. Detect language and output in SAME language as title.
+3. Output strictly in ${targetLang}.
 4. Output ONLY content.`;
     } else {
       prompt = `Role: Academic Editor.
@@ -240,18 +436,73 @@ Title: "${contextTitle}"
 Requirements:
 1. Concise and impactful.
 2. Improve academic tone.
-3. Detect language of input and output in SAME language.
-4. Output ONLY revised content.`;
+3. Use markdown format if applicable (bold key terms).
+4. Output strictly in ${targetLang}.
+5. Output ONLY revised content.`;
     }
 
     try {
       const newText = await callGeminiAPI(prompt);
       updateBlockContent(blockId, newText);
     } catch (err) {
-      setError("AI 连接失败，请稍后重试。");
+      setError(err.message || "AI 连接失败，请稍后重试。");
     } finally {
       setAiLoading(prev => ({ ...prev, [blockId]: false }));
     }
+  };
+
+  // --- Image Download Logic ---
+  const handleDownloadImage = async () => {
+    if (!window.html2canvas) {
+      alert("Image generator loading... please try again in a moment.");
+      return;
+    }
+    
+    // We capture the inner element "poster-content" which has the real dimensions
+    const element = document.getElementById('poster-content'); 
+    if (!element) return;
+
+    setImgGenerating(true);
+    
+    try {
+      // html2canvas configuration
+      const canvas = await window.html2canvas(element, {
+        scale: 2, // 2x scale for better resolution (Retina quality)
+        useCORS: true, // Allow cross-origin images if configured
+        logging: false,
+        // 如果使用了自定义颜色，确保背景正确；否则使用主题默认背景
+        backgroundColor: null, 
+        onclone: (clonedDoc) => {
+          const clonedElement = clonedDoc.getElementById('poster-content');
+          if (clonedElement) {
+            clonedElement.style.transform = 'none'; 
+            clonedElement.style.position = 'relative';
+            clonedElement.style.top = '0';
+            clonedElement.style.left = '0';
+            clonedElement.style.margin = '0';
+          }
+        }
+      });
+
+      const link = document.createElement('a');
+      link.download = `poster-${new Date().toISOString().slice(0,10)}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      
+    } catch (err) {
+      console.error(err);
+      alert("Failed to generate image. Please try Print PDF instead.");
+    } finally {
+      setImgGenerating(false);
+    }
+  };
+
+  // --- 语言切换 ---
+  const toggleBlockLanguage = (blockId, isZh) => {
+    setBlockLanguages(prev => ({
+      ...prev,
+      [blockId]: isZh ? 'zh' : 'en'
+    }));
   };
 
   // --- 数据操作 ---
@@ -291,8 +542,9 @@ Requirements:
   };
 
   const addBlock = (colIndex, type) => {
+    const newId = generateId();
     const newBlock = {
-      id: generateId(),
+      id: newId,
       type: type,
       title: type === 'text' ? 'New Section' : 'New Figure',
       content: type === 'text' ? 'Add your content here...' : 'Figure caption here...',
@@ -308,6 +560,11 @@ Requirements:
   const removeBlock = (id) => {
     if(!window.confirm("确定删除此模块吗？")) return;
     setColumns(prev => prev.map(col => col.filter(b => b.id !== id)));
+    setBlockLanguages(prev => {
+        const next = {...prev};
+        delete next[id];
+        return next;
+    });
   };
 
   // --- 拖拽逻辑 (在 Sidebar 中操作) ---
@@ -424,14 +681,22 @@ Requirements:
 
   return (
     <div className="flex flex-col h-screen bg-gray-100 font-sans overflow-hidden">
+      {/* Font Styles Injection for Gemini Theme */}
+      <style>{`
+        .font-lato { font-family: 'Lato', sans-serif; }
+        .font-roboto { font-family: 'Roboto Mono', monospace; }
+        /* 修复 html2canvas 文字偏移 */
+        .html2canvas-container { width: 3000px !important; height: 3000px !important; }
+      `}</style>
+
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-sm z-10 shrink-0">
         <div className="flex items-center gap-2">
           <Layout className="text-blue-600 w-6 h-6" />
           <h1 className="text-xl font-bold text-gray-800">PosterGen AI (Modular Pro)</h1>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="hidden md:flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200">
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200 mr-2">
             <input 
               type="text" 
               placeholder="输入 DOI (如 10.1038/...)" 
@@ -445,9 +710,22 @@ Requirements:
               AI Fetch
             </button>
           </div>
-          <button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-md transition-colors whitespace-nowrap">
+          
+          <button 
+            onClick={handleDownloadImage}
+            disabled={imgGenerating}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-md transition-colors whitespace-nowrap"
+          >
+            {imgGenerating ? <Loader2 className="w-4 h-4 animate-spin"/> : <FileImage className="w-4 h-4" />}
+            Image
+          </button>
+
+          <button 
+            onClick={() => window.print()} 
+            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-md transition-colors whitespace-nowrap"
+          >
             <Printer className="w-4 h-4" />
-            PDF Export
+            PDF
           </button>
         </div>
       </header>
@@ -501,26 +779,42 @@ Requirements:
                  </div>
                  <div className="flex gap-2 items-center">
                     {Object.values(THEMES).map(theme => (
-                      <button key={theme.id} onClick={() => { setActiveTheme(theme); setCustomBg(''); }}
-                        className={`w-6 h-6 rounded-full border ${activeTheme.id === theme.id && !customBg ? 'ring-2 ring-blue-400' : ''} ${theme.id==='darkMode'?'bg-slate-800':theme.headerGradient.split(' ')[0].replace('bg-','bg-')}`} 
+                      <button key={theme.id} onClick={() => { setActiveTheme(theme); setCustomColor(''); }}
+                        className={`w-6 h-6 rounded-full border ${activeTheme.id === theme.id && !customColor ? 'ring-2 ring-blue-400' : ''} ${theme.id==='darkMode'?'bg-slate-800':theme.headerGradient.split(' ')[0].replace('bg-','bg-')}`} 
                         title={theme.name}
                       />
                     ))}
                     <div className="w-px h-4 bg-gray-300 mx-1"></div>
-                    {/* 自定义背景色选择器 */}
+                    {/* 自定义主题色选择器 */}
                     <div className="relative flex items-center gap-2 group">
                       <input 
                         type="color" 
-                        value={customBg || '#ffffff'} 
-                        onChange={(e) => setCustomBg(e.target.value)} 
+                        value={customColor || '#0097a7'} 
+                        onChange={(e) => setCustomColor(e.target.value)} 
                         className="h-6 w-8 p-0 border border-gray-200 rounded cursor-pointer overflow-hidden" 
-                        title="自定义背景色"
+                        title="自定义主题色"
                       />
-                      {customBg && (
-                        <button onClick={() => setCustomBg('')} className="text-[10px] text-red-400 hover:text-red-600 underline">重置</button>
+                      {customColor && (
+                        <button onClick={() => setCustomColor('')} className="text-[10px] text-red-400 hover:text-red-600 underline">重置</button>
                       )}
                     </div>
                  </div>
+              </div>
+
+              {/* API Key Settings */}
+              <div className="space-y-2 pt-2 border-t border-gray-100">
+                  <div className="flex items-center gap-1 text-xs text-gray-500 font-medium">
+                      <Key className="w-3 h-3" />
+                      <span>Gemini API Key (可选)</span>
+                  </div>
+                  <input 
+                      type="password" 
+                      value={userApiKey} 
+                      onChange={(e) => setUserApiKey(e.target.value)} 
+                      className="w-full p-1.5 border border-gray-200 rounded text-xs focus:ring-1 focus:ring-blue-500 outline-none" 
+                      placeholder="如果 AI 功能失败，请在此输入 Key..." 
+                  />
+                  <p className="text-[10px] text-gray-400">仅用于当前会话，不会保存到服务器。</p>
               </div>
             </div>
 
@@ -603,9 +897,20 @@ Requirements:
                            </div>
                            <div className="flex items-center gap-1">
                               {block.type === 'text' && (
-                                <button onClick={() => handleAIOptimize(block.id, block.content, block.title)} disabled={aiLoading[block.id]} className="p-1 hover:bg-purple-100 text-purple-600 rounded">
-                                  {aiLoading[block.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
-                                </button>
+                                <>
+                                  <label className="flex items-center gap-1 mr-1 cursor-pointer select-none">
+                                    <input 
+                                        type="checkbox" 
+                                        className="w-3 h-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        checked={blockLanguages[block.id] === 'zh'}
+                                        onChange={(e) => toggleBlockLanguage(block.id, e.target.checked)}
+                                    />
+                                    <span className={`text-[10px] font-medium ${blockLanguages[block.id] === 'zh' ? 'text-blue-600' : 'text-gray-400'}`}>中文</span>
+                                  </label>
+                                  <button onClick={() => handleAIOptimize(block.id, block.content, block.title)} disabled={aiLoading[block.id]} className="p-1 hover:bg-purple-100 text-purple-600 rounded">
+                                    {aiLoading[block.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                                  </button>
+                                </>
                               )}
                               <button onClick={() => removeBlock(block.id)} className="p-1 hover:bg-red-100 text-red-500 rounded"><Trash2 className="w-3 h-3" /></button>
                            </div>
@@ -635,7 +940,7 @@ Requirements:
                             value={block.content} 
                             onChange={(e) => updateBlockContent(block.id, e.target.value)}
                             className="w-full text-xs p-2 border border-gray-200 rounded outline-none focus:border-blue-400 min-h-[60px] font-mono text-gray-600"
-                            placeholder={block.type === 'image' ? 'Image Caption...' : 'Type content here...'}
+                            placeholder={block.type === 'image' ? 'Image Caption...' : 'Type content here (Supports Markdown: **bold**, - list, | table |)...'}
                           />
                         </div>
                       </div>
@@ -685,14 +990,17 @@ Requirements:
           <div style={{ width: `${dims.widthMm * scale}mm`, height: `${dims.heightMm * scale}mm`, transition: 'all 0.3s ease-out', margin: 'auto' }} className="relative shadow-[0_0_50px_-10px_rgba(0,0,0,0.3)]">
             
             {/* Real Size Content */}
-            <div className={`origin-top-left absolute top-0 left-0 ${!customBg ? activeTheme.bg : ''}`} style={{ width: `${dims.widthMm}mm`, height: `${dims.heightMm}mm`, transform: `scale(${scale})`, backgroundColor: customBg || undefined }}>
+            <div id="poster-content" className={`origin-top-left absolute top-0 left-0 ${!customColor ? activeTheme.bg : ''}`} style={{ width: `${dims.widthMm}mm`, height: `${dims.heightMm}mm`, transform: `scale(${scale})`, backgroundColor: customColor ? '#f8fafc' : undefined }}>
               <div className={`w-full h-full flex flex-col ${activeTheme.font}`}>
                 
                 {/* Header */}
-                <div className={`${activeTheme.headerGradient} text-white p-12 shrink-0 relative shadow-md h-[15%] flex flex-col justify-center`}>
+                <div 
+                  className={`${!customColor ? activeTheme.headerGradient : ''} text-white p-12 shrink-0 relative shadow-md h-[15%] flex flex-col justify-center`}
+                  style={{ backgroundColor: customColor || undefined }}
+                >
                   
                   {/* Left Logo */}
-                  <div className="absolute top-1/2 -translate-y-1/2 left-12 h-[70%] aspect-square bg-white/10 rounded-lg flex flex-col items-center justify-center border border-white/20 overflow-hidden">
+                  <div className="absolute top-1/2 -translate-y-1/2 left-16 h-[55%] aspect-square bg-white/10 rounded-lg flex flex-col items-center justify-center border border-white/20 overflow-hidden">
                       {logos.left ? (
                         <img src={logos.left} className="w-full h-full object-contain p-2" alt="Left Logo" />
                       ) : (
@@ -704,7 +1012,7 @@ Requirements:
                   </div>
 
                   {/* Right Logo */}
-                  <div className="absolute top-1/2 -translate-y-1/2 right-12 h-[70%] aspect-square bg-white/10 rounded-lg flex flex-col items-center justify-center border border-white/20 overflow-hidden">
+                  <div className="absolute top-1/2 -translate-y-1/2 right-16 h-[55%] aspect-square bg-white/10 rounded-lg flex flex-col items-center justify-center border border-white/20 overflow-hidden">
                       {logos.right ? (
                         <img src={logos.right} className="w-full h-full object-contain p-2" alt="Right Logo" />
                       ) : (
@@ -715,7 +1023,7 @@ Requirements:
                       )}
                   </div>
 
-                  <div className="flex flex-col items-center justify-center text-center px-64">
+                  <div className="flex flex-col items-center justify-center text-center px-96">
                       <h1 className="text-8xl font-black mb-6 leading-tight tracking-tight drop-shadow-md line-clamp-2">{header.title}</h1>
                       <div className="flex flex-col gap-2">
                         <p className="text-5xl font-medium opacity-95 line-clamp-1">{header.authors}</p>
@@ -729,8 +1037,16 @@ Requirements:
                   {columns.map((col, colIdx) => (
                     <div key={colIdx} className="flex flex-col gap-12 min-h-0">
                       {col.map(block => (
-                         <div key={block.id} className={`flex flex-col rounded-xl overflow-hidden shadow-sm border-2 ${activeTheme.id === 'darkMode' ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-200'} ${block.type === 'image' ? 'flex-1' : ''}`}>
-                            <div className={`p-6 ${activeTheme.blockHeader} flex items-center justify-center shrink-0`}>
+                         <div key={block.id} className={`flex flex-col rounded-xl overflow-hidden ${activeTheme.cardShadow} ${activeTheme.isGeminiStyle ? '' : 'border-2'} ${activeTheme.id === 'darkMode' ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-200'} ${block.type === 'image' ? 'flex-1' : ''}`} style={{ borderColor: customColor || undefined }}>
+                            <div 
+                              className={`p-6 ${!customColor ? activeTheme.blockHeader : ''} flex items-center justify-center shrink-0`}
+                              style={{ 
+                                backgroundColor: activeTheme.isGeminiStyle && customColor ? 'white' : (customColor || undefined),
+                                color: activeTheme.isGeminiStyle && customColor ? customColor : undefined,
+                                borderBottomColor: activeTheme.isGeminiStyle && customColor ? customColor : undefined,
+                                borderBottomWidth: activeTheme.isGeminiStyle && customColor ? '4px' : undefined
+                              }}
+                            >
                               <h3 className="text-5xl font-bold uppercase tracking-wider text-center">{block.title}</h3>
                             </div>
                             <div className={`p-10 flex-1 overflow-hidden flex flex-col ${activeTheme.id === 'darkMode' ? 'text-gray-200' : 'text-gray-800'}`}>
@@ -747,7 +1063,7 @@ Requirements:
                                  </div>
                                )}
                                <div className={`text-justify whitespace-pre-wrap leading-relaxed overflow-y-auto ${block.type === 'image' ? 'text-3xl max-h-[30%]' : 'text-3xl flex-1'}`}>
-                                 {block.content}
+                                 <MarkdownRenderer content={block.content} isDarkMode={activeTheme.id === 'darkMode'} />
                                </div>
                             </div>
                          </div>
@@ -757,7 +1073,15 @@ Requirements:
                 </div>
 
                 {/* Footer */}
-                <div className={`${activeTheme.blockHeader} p-8 px-16 flex items-center justify-between shrink-0 h-[8%]`}>
+                <div 
+                  className={`${!customColor ? activeTheme.blockHeader : ''} p-8 px-16 flex items-center justify-between shrink-0 h-[8%]`}
+                  style={{ 
+                    backgroundColor: activeTheme.isGeminiStyle && customColor ? 'white' : (customColor || undefined),
+                    color: activeTheme.isGeminiStyle && customColor ? customColor : undefined,
+                    borderTopColor: activeTheme.isGeminiStyle && customColor ? customColor : undefined,
+                    borderTopWidth: activeTheme.isGeminiStyle && customColor ? '4px' : undefined
+                  }}
+                >
                    <div className="flex flex-col gap-1 max-w-[60%]">
                        <h4 className="text-2xl font-bold uppercase opacity-70">Acknowledgements</h4>
                        <p className="text-2xl opacity-90 line-clamp-1">{footer.acknowledgements}</p>
@@ -780,8 +1104,10 @@ Requirements:
           html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; height: 100% !important; }
           header, aside, .no-print { display: none !important; }
           main { padding: 0 !important; margin: 0 !important; height: 100vh !important; width: 100vw !important; overflow: visible !important; display: block !important; background: white !important; }
+          /* Ensure the content is visible and scaled 1:1 for print */
           main > div[style] { transform: none !important; width: ${dims.widthMm}mm !important; height: ${dims.heightMm}mm !important; margin: 0 !important; box-shadow: none !important; position: absolute !important; top: 0 !important; left: 0 !important; }
-          main > div > div[style] { transform: none !important; width: 100% !important; height: 100% !important; }
+          /* Reset inner scaling */
+          #poster-content { transform: none !important; width: 100% !important; height: 100% !important; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
       `}</style>
