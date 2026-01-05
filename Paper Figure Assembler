@@ -1,0 +1,928 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Upload, X, Download, Move, LayoutGrid, Type, Image as ImageIcon, Settings, Trash2, Grid3X3, FileText, Copy, Check, FileDown, Sparkles, Loader2, Edit3, Crop, MousePointer2, ArrowRight, Minus, Square, Circle, Palette, Ruler, BrainCircuit, MessageSquareQuote, Wand2, BookOpen, Bot, Maximize2, MoveHorizontal, MoveVertical, Scan, Minimize, Scaling, ZoomIn, Plus, RefreshCcw, FlaskConical, UserCheck } from 'lucide-react';
+
+export default function FigurePuzzle() {
+  const [images, setImages] = useState([]);
+  const [columns, setColumns] = useState(2);
+  const [gap, setGap] = useState(20); 
+  const [aspectRatio, setAspectRatio] = useState(1); 
+  const [fitMode, setFitMode] = useState('cover'); 
+  const [backgroundColor, setBackgroundColor] = useState('#ffffff'); 
+  
+  const [showLabels, setShowLabels] = useState(true);
+  const [labelSize, setLabelSize] = useState(48);
+  const [labelOffset, setLabelOffset] = useState(10);
+  const [labelStyle, setLabelStyle] = useState('uppercase'); 
+  const [fontFamily, setFontFamily] = useState('Arial');
+  const [labelWeight, setLabelWeight] = useState('bold');
+  const [labelColor, setLabelColor] = useState('#000000'); 
+
+  const [exportWithLabels, setExportWithLabels] = useState(true);
+
+  const [editingImageId, setEditingImageId] = useState(null);
+  const [editTool, setEditTool] = useState('move'); 
+  const [tempImageState, setTempImageState] = useState(null); 
+  
+  const [annoColor, setAnnoColor] = useState('red');
+  const [annoWidth, setAnnoWidth] = useState(4);
+
+  const [showLegendModal, setShowLegendModal] = useState(false);
+  const [figNumber, setFigNumber] = useState('1');
+  const [figTitle, setFigTitle] = useState('');
+  const [imageDescriptions, setImageDescriptions] = useState({});
+  const [copied, setCopied] = useState(false);
+  const [analyzingIds, setAnalyzingIds] = useState({});
+  const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
+  const [polishingIds, setPolishingIds] = useState({});
+
+  // AI 文本生成器状态
+  const [showTextModal, setShowTextModal] = useState(false);
+  const [generatedText, setGeneratedText] = useState('');
+  const [modalTitle, setModalTitle] = useState('');
+  const [isGeneratingText, setIsGeneratingText] = useState(false); // Modal 内部的 loading
+
+  // 按钮独立的 Loading 状态 (修复 ReferenceError)
+  const [isGeneratingResults, setIsGeneratingResults] = useState(false);
+  const [isGeneratingMethods, setIsGeneratingMethods] = useState(false);
+  const [isCheckingReview, setIsCheckingReview] = useState(false);
+
+  const [draggedItemIndex, setDraggedItemIndex] = useState(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [pdfLibLoaded, setPdfLibLoaded] = useState(false);
+
+  const apiKey = "";
+
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    script.async = true;
+    script.onload = () => setPdfLibLoaded(true);
+    document.body.appendChild(script);
+    return () => {
+      if(document.body.contains(script)) document.body.removeChild(script);
+    }
+  }, []);
+
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        setImages(prev => [...prev, {
+          id: Math.random().toString(36).substr(2, 9),
+          url: url,
+          file: file,
+          name: file.name,
+          width: img.width,
+          height: img.height,
+          naturalRatio: img.width / img.height,
+          transform: { scale: 1, x: 0, y: 0 }, 
+          annotations: [],
+          colSpan: 1, 
+          rowSpan: 1,
+          fit: null,
+          padding: 0 
+        }]);
+      };
+      img.src = url;
+    });
+  };
+
+  const removeImage = (index) => {
+    const idToRemove = images[index].id;
+    setImages(prev => prev.filter((_, i) => i !== index));
+    const newDescs = { ...imageDescriptions };
+    delete newDescs[idToRemove];
+    setImageDescriptions(newDescs);
+  };
+
+  const adjustImageSpan = (index, field, delta) => {
+    const newImages = [...images];
+    let newVal = (newImages[index][field] || 1) + delta;
+    if (newVal < 1) newVal = 1;
+    if (field === 'colSpan' && newVal > columns) newVal = columns;
+    if (field === 'rowSpan' && newVal > 6) newVal = 6; 
+    newImages[index] = { ...newImages[index], [field]: newVal };
+    setImages(newImages);
+  };
+
+  const updateImagePadding = (index, delta) => {
+    const newImages = [...images];
+    let newPadding = (newImages[index].padding || 0) + delta;
+    if (newPadding < 0) newPadding = 0;
+    if (newPadding > 50) newPadding = 50; 
+    newImages[index].padding = newPadding;
+    setImages(newImages);
+  };
+
+  const updateImageScale = (index, delta) => {
+    const newImages = [...images];
+    const currentScale = newImages[index].transform?.scale || 1;
+    let newScale = currentScale + delta;
+    if (newScale < 0.1) newScale = 0.1;
+    if (newScale > 5) newScale = 5;
+    
+    newImages[index].transform = {
+      ...newImages[index].transform,
+      scale: newScale
+    };
+    setImages(newImages);
+  };
+
+  const resetImageTransform = (index) => {
+    const newImages = [...images];
+    newImages[index].transform = { scale: 1, x: 0, y: 0 };
+    newImages[index].padding = 0;
+    setImages(newImages);
+  };
+
+  const handleAutoResize = (index) => {
+    const img = images[index];
+    const targetRatio = img.naturalRatio;
+    let bestConfig = { col: 1, row: 1, diff: Infinity };
+    for (let c = 1; c <= Math.min(columns, 3); c++) {
+      for (let r = 1; r <= 3; r++) {
+        const gridRatio = (c * aspectRatio) / r; 
+        const diff = Math.abs(gridRatio - targetRatio);
+        if (diff < bestConfig.diff) {
+          bestConfig = { col: c, row: r, diff };
+        }
+      }
+    }
+    const newImages = [...images];
+    newImages[index] = { ...newImages[index], colSpan: bestConfig.col, rowSpan: bestConfig.row };
+    setImages(newImages);
+  };
+
+  const toggleImageFit = (index) => {
+    const newImages = [...images];
+    const currentFit = newImages[index].fit || fitMode;
+    newImages[index].fit = currentFit === 'cover' ? 'contain' : 'cover';
+    setImages(newImages);
+  };
+
+  const handleDragStart = (e, index) => {
+    setDraggedItemIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    if (draggedItemIndex === null || draggedItemIndex === index) return;
+    const newImages = [...images];
+    const draggedItem = newImages[draggedItemIndex];
+    newImages.splice(draggedItemIndex, 1);
+    newImages.splice(index, 0, draggedItem);
+    setImages(newImages);
+    setDraggedItemIndex(index);
+  };
+
+  const handleDragEnd = () => setDraggedItemIndex(null);
+
+  const getLabelText = (index) => {
+    if (labelStyle === 'uppercase') return String.fromCharCode(65 + index);
+    if (labelStyle === 'lowercase') return String.fromCharCode(97 + index);
+    if (labelStyle === 'number') return (index + 1).toString();
+    return '';
+  };
+
+  const calculateGridLayout = (imgList, totalCols) => {
+    const gridMap = {}; 
+    const layout = [];  
+    let maxRow = 0;
+    const isOccupied = (r, c, w, h) => {
+      for (let i = 0; i < h; i++) {
+        for (let j = 0; j < w; j++) {
+          if (gridMap[`${r + i},${c + j}`]) return true;
+        }
+      }
+      return false;
+    };
+    const markOccupied = (r, c, w, h) => {
+      for (let i = 0; i < h; i++) {
+        for (let j = 0; j < w; j++) {
+          gridMap[`${r + i},${c + j}`] = true;
+        }
+      }
+      maxRow = Math.max(maxRow, r + h);
+    };
+    imgList.forEach((img) => {
+      let colSpan = Math.min(img.colSpan || 1, totalCols);
+      let rowSpan = img.rowSpan || 1;
+      let placed = false;
+      let r = 0;
+      while (!placed) {
+        for (let c = 0; c <= totalCols - colSpan; c++) {
+          if (!isOccupied(r, c, colSpan, rowSpan)) {
+            layout.push({ ...img, gridX: c, gridY: r, gridW: colSpan, gridH: rowSpan });
+            markOccupied(r, c, colSpan, rowSpan);
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) r++; 
+      }
+    });
+    return { layout, totalRows: maxRow };
+  };
+
+  const generateCanvas = async (forExport = false) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const totalWidth = 2480; 
+    const { layout, totalRows } = calculateGridLayout(images, columns);
+    const scaleFactor = 2; 
+    const effectiveGap = gap * scaleFactor;
+    const cellWidth = (totalWidth - (columns - 1) * effectiveGap) / columns;
+    const cellHeight = cellWidth / aspectRatio;
+    const totalHeight = totalRows * cellHeight + (totalRows - 1) * effectiveGap;
+
+    canvas.width = totalWidth;
+    canvas.height = totalHeight > 0 ? totalHeight : 100; 
+
+    ctx.fillStyle = backgroundColor; 
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const loadImg = (src) => new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+
+    for (let i = 0; i < layout.length; i++) {
+      const item = layout[i];
+      const img = await loadImg(item.url);
+      if (!img) continue;
+      
+      const x = item.gridX * (cellWidth + effectiveGap);
+      const y = item.gridY * (cellHeight + effectiveGap);
+      const w = item.gridW * cellWidth + (item.gridW - 1) * effectiveGap;
+      const h = item.gridH * cellHeight + (item.gridH - 1) * effectiveGap;
+
+      const srcRatio = img.width / img.height;
+      const destRatio = w / h; 
+      let renderW, renderH;
+      const currentFit = item.fit || fitMode;
+
+      const padding = (item.padding || 0) / 100; 
+      const availW = w * (1 - padding * 2);
+      const availH = h * (1 - padding * 2);
+      const padX = w * padding;
+      const padY = h * padding;
+
+      if (currentFit === 'cover') {
+        if (srcRatio > destRatio) {
+           renderH = availH;
+           renderW = availH * srcRatio;
+        } else {
+           renderW = availW;
+           renderH = availW / srcRatio;
+        }
+      } else {
+         if (srcRatio > destRatio) {
+           renderW = availW;
+           renderH = availW / srcRatio;
+         } else {
+           renderH = availH;
+           renderW = availH * srcRatio;
+         }
+      }
+
+      const userScale = item.transform?.scale || 1;
+      const userX = (item.transform?.x || 0) * availW; 
+      const userY = (item.transform?.y || 0) * availH;
+
+      const finalW = renderW * userScale;
+      const finalH = renderH * userScale;
+      
+      const centerX = x + padX + availW / 2;
+      const centerY = y + padY + availH / 2;
+      
+      const drawX = centerX - finalW / 2 + userX;
+      const drawY = centerY - finalH / 2 + userY;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, y, w, h);
+      ctx.clip();
+      ctx.drawImage(img, drawX, drawY, finalW, finalH);
+      
+      if (item.annotations) {
+        item.annotations.forEach(anno => {
+          const annoScale = (Math.min(w, h) / 500) * 2; 
+          const sx = centerX + (anno.x * annoScale);
+          const sy = centerY + (anno.y * annoScale);
+          const ex = anno.endX !== undefined ? centerX + (anno.endX * annoScale) : 0;
+          const ey = anno.endY !== undefined ? centerY + (anno.endY * annoScale) : 0;
+          const size = (anno.size || 2) * annoScale;
+          const color = anno.color || 'red';
+
+          ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = size;
+
+          if (anno.type === 'arrow') {
+            ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+            const angle = Math.atan2(ey - sy, ex - sx); const headLen = size * 5;
+            ctx.beginPath(); ctx.moveTo(ex, ey); 
+            ctx.lineTo(ex - headLen * Math.cos(angle - Math.PI/6), ey - headLen * Math.sin(angle - Math.PI / 6)); 
+            ctx.lineTo(ex - headLen * Math.cos(angle + Math.PI/6), ey - headLen * Math.sin(angle + Math.PI / 6)); 
+            ctx.lineTo(ex, ey); ctx.fill();
+          } else if (anno.type === 'rect') {
+            const rw = ex - sx; const rh = ey - sy; ctx.strokeRect(sx, sy, rw, rh);
+          } else if (anno.type === 'circle') {
+             const radius = Math.sqrt(Math.pow(ex - sx, 2) + Math.pow(ey - sy, 2)); ctx.beginPath(); ctx.arc(sx, sy, radius, 0, 2 * Math.PI); ctx.stroke();
+          } else if (anno.type === 'scalebar') {
+             const barW = ex - sx; ctx.lineWidth = size * 1.5; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, sy); ctx.stroke();
+             if (anno.content) {
+               const fontSize = 24 * (annoScale*0.5); ctx.font = `bold ${fontSize}px Arial`; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.lineWidth = size/2; ctx.strokeStyle = color === 'white' ? 'black' : 'white';
+               ctx.strokeText(anno.content, sx + barW/2, sy - 5 * annoScale); ctx.fillText(anno.content, sx + barW/2, sy - 5 * annoScale);
+             }
+          } else if (anno.type === 'text') {
+            const fontSize = (anno.size || 24) * (annoScale*0.5); ctx.font = `bold ${fontSize}px Arial`; ctx.textBaseline = 'middle'; ctx.textAlign = 'center'; ctx.lineWidth = size/2; ctx.strokeStyle = 'white';
+            ctx.strokeText(anno.content, sx, sy); ctx.fillText(anno.content, sx, sy);
+          }
+        });
+      }
+      ctx.restore();
+
+      const originalIndex = images.findIndex(img => img.id === item.id);
+      const shouldDrawLabels = forExport ? (showLabels && exportWithLabels) : showLabels;
+      
+      if (shouldDrawLabels && originalIndex !== -1) {
+        const labelText = getLabelText(originalIndex);
+        const fontSize = labelSize * 1.5; 
+        ctx.font = `${labelWeight} ${fontSize}px ${fontFamily}`;
+        ctx.fillStyle = labelColor; 
+        ctx.textBaseline = 'top';
+        ctx.textAlign = 'left';
+        const labelX = x + (labelOffset * 1.5);
+        const labelY = y + (labelOffset * 1.5); 
+        ctx.fillText(labelText, labelX, labelY);
+      }
+    }
+    return canvas;
+  };
+
+  const startEditing = (imgId) => {
+    const img = images.find(i => i.id === imgId);
+    if (img) {
+      setTempImageState(JSON.parse(JSON.stringify(img)));
+      setEditingImageId(imgId);
+      setEditTool('move');
+    }
+  };
+
+  const saveEditing = () => {
+    setImages(prev => prev.map(img => img.id === editingImageId ? tempImageState : img));
+    setEditingImageId(null);
+    setTempImageState(null);
+  };
+
+  const cancelEditing = () => {
+    setEditingImageId(null);
+    setTempImageState(null);
+  };
+
+  const handleExportPNG = async () => {
+    setIsExporting(true);
+    try {
+      const canvas = await generateCanvas(true);
+      const link = document.createElement('a');
+      link.download = `Figure_${figNumber}.png`;
+      link.href = canvas.toDataURL('image/png', 1.0);
+      link.click();
+    } catch (e) {
+      console.error(e);
+      alert("导出失败");
+    }
+    setIsExporting(false);
+  };
+
+  const handleExportPDF = async () => {
+    if (!window.jspdf) return alert("组件加载中...");
+    setIsExporting(true);
+    try {
+      const canvas = await generateCanvas(true);
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: canvas.width > canvas.height ? 'landscape' : 'portrait', unit: 'mm' });
+      const pdfW = pdf.internal.pageSize.getWidth();
+      const pdfH = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const maxW = pdfW - margin * 2;
+      const maxH = pdfH - margin * 2;
+      const ratio = canvas.width / canvas.height;
+      let w = maxW, h = maxW / ratio;
+      if (h > maxH) { h = maxH; w = maxH * ratio; }
+      pdf.addImage(imgData, 'JPEG', (pdfW - w)/2, margin, w, h);
+      pdf.save(`Figure_${figNumber}.pdf`);
+    } catch (e) { console.error(e); alert("PDF生成失败"); }
+    setIsExporting(false);
+  };
+
+  const getBase64FromUrl = async (url) => {
+    const data = await fetch(url);
+    const blob = await data.blob();
+    return new Promise((r) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = () => r({ mimeType: reader.result.split(';')[0].split(':')[1], base64: reader.result.split(',')[1] });
+    });
+  }
+
+  const handleAIAnalyze = async (imgId, imgUrl) => {
+    setAnalyzingIds(prev => ({...prev, [imgId]: true}));
+    try {
+      const { mimeType, base64 } = await getBase64FromUrl(imgUrl);
+      const promptText = "Analyze this scientific image. Provide a concise figure legend description (1-2 sentences) in English (SCI standard). Describe what is shown. No labels like 'Figure 1'.";
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: promptText }, { inlineData: { mimeType, data: base64 } }] }] })
+      });
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) setImageDescriptions(prev => ({...prev, [imgId]: text.trim()}));
+    } catch (error) { alert("AI 分析暂时不可用"); } finally { setAnalyzingIds(prev => ({...prev, [imgId]: false})); }
+  };
+
+  const handleGenerateTitle = async () => {
+    const descriptions = Object.values(imageDescriptions).filter(d => d && d.trim().length > 0);
+    if (descriptions.length === 0) return alert("请先填写描述。");
+    setIsGeneratingTitle(true);
+    try {
+      const prompt = `Based on these panel descriptions for a scientific figure, suggest a single, concise, academic title (in English, NO "Figure 1" prefix): \n\n${descriptions.join('\n')}`;
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) setFigTitle(text.trim().replace(/^Figure \d+[:.]\s*/i, '').replace(/\.$/, ''));
+    } catch(e) { alert("生成失败"); } finally { setIsGeneratingTitle(false); }
+  };
+
+  const handlePolishDescription = async (imgId, currentText) => {
+    if (!currentText || currentText.trim().length === 0) return alert("请先输入一些描述文字。");
+    setPolishingIds(prev => ({...prev, [imgId]: true}));
+    try {
+      const prompt = `Rewrite this figure legend description to be more concise, formal, and grammatically correct for a high-impact journal (SCI standard). Return ONLY the rewritten text: "${currentText}"`;
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) setImageDescriptions(prev => ({...prev, [imgId]: text.trim()}));
+    } catch(e) { alert("润色失败"); } finally { setPolishingIds(prev => ({...prev, [imgId]: false})); }
+  };
+
+  // 生成结果
+  const handleGenerateResults = async () => {
+    const descriptions = Object.entries(imageDescriptions)
+      .filter(([_, desc]) => desc.trim())
+      .map(([id, desc], i) => `Panel ${getLabelText(images.findIndex(img => img.id === id))}: ${desc}`).join('\n');
+    if (!descriptions) return alert("请先完善描述。");
+    
+    setIsGeneratingResults(true);
+    setIsGeneratingText(true); 
+    setShowTextModal(true); 
+    setModalTitle('AI Results 段落生成器');
+    setGeneratedText("Writing...");
+    
+    try {
+      const prompt = `Based on Figure Title: "${figTitle}" and descriptions:\n${descriptions}\n\nWrite a cohesive 'Results' paragraph for a research paper. Use academic tone.`;
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) setGeneratedText(text.trim());
+    } catch(e) { setGeneratedText("Error."); } finally { setIsGeneratingText(false); setIsGeneratingResults(false); }
+  };
+
+  // 生成方法学
+  const handleGenerateMethods = async () => {
+    const descriptions = Object.entries(imageDescriptions)
+      .filter(([_, desc]) => desc.trim())
+      .map(([id, desc], i) => `Panel ${getLabelText(images.findIndex(img => img.id === id))}: ${desc}`).join('\n');
+    if (!descriptions) return alert("请先完善描述。");
+
+    setIsGeneratingMethods(true);
+    setIsGeneratingText(true);
+    setShowTextModal(true);
+    setModalTitle('AI 方法学 (Methods) 生成器');
+    setGeneratedText("Drafting Methods...");
+
+    try {
+      const prompt = `Based on the figure descriptions:\n${descriptions}\n\nIdentify the experimental techniques used (e.g., Western Blot, PCR, Microscopy). Draft a 'Materials and Methods' section suitable for a scientific paper covering these techniques. Use placeholders like '[concentration]' for specific details.`;
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) setGeneratedText(text.trim());
+    } catch(e) { setGeneratedText("Error."); } finally { setIsGeneratingText(false); setIsGeneratingMethods(false); }
+  };
+
+  // 审稿人检查
+  const handleReviewerCheck = async () => {
+    const descriptions = Object.entries(imageDescriptions)
+      .filter(([_, desc]) => desc.trim())
+      .map(([id, desc], i) => `Panel ${getLabelText(images.findIndex(img => img.id === id))}: ${desc}`).join('\n');
+    if (!descriptions) return alert("请先完善描述。");
+
+    setIsCheckingReview(true);
+    setIsGeneratingText(true);
+    setShowTextModal(true);
+    setModalTitle('AI 模拟审稿人反馈 (Reviewer Critique)');
+    setGeneratedText("Reviewing...");
+
+    try {
+      const prompt = `You are a strict scientific reviewer. Analyze the following figure legend descriptions for clarity, completeness, and scientific logic:\n${descriptions}\n\nPoint out any potential issues (e.g., missing sample size n, undefined error bars, vague descriptions) and suggest improvements. Be critical but constructive.`;
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) setGeneratedText(text.trim());
+    } catch(e) { setGeneratedText("Error."); } finally { setIsGeneratingText(false); setIsCheckingReview(false); }
+  };
+
+  const copyLegend = () => {
+    let text = `**Figure ${figNumber}. ${figTitle || 'Title.'}** `;
+    images.forEach((img, index) => {
+      const desc = imageDescriptions[img.id] || '';
+      if (desc.trim()) text += `**(${getLabelText(index)})** ${desc.trim().replace(/\.$/, '')}. `;
+    });
+    const textArea = document.createElement("textarea"); textArea.value = text.replace(/\*\*/g, '');
+    textArea.style.position = "fixed"; textArea.style.opacity = "0"; document.body.appendChild(textArea); textArea.select();
+    try { document.execCommand('copy'); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch (err) {}
+    document.body.removeChild(textArea);
+  };
+
+  const ImageEditorModal = () => {
+    if (!editingImageId || !tempImageState) return null;
+    const canvasRef = useRef(null); const [isDragging, setIsDragging] = useState(false); const [dragStart, setDragStart] = useState({ x: 0, y: 0 }); const editorSize = 500; const [drawingStart, setDrawingStart] = useState(null);
+    useEffect(() => {
+      const canvas = canvasRef.current; if (!canvas) return; const ctx = canvas.getContext('2d'); const img = new Image(); img.src = tempImageState.url;
+      const render = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = '#eeeeee'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const centerX = canvas.width / 2; const centerY = canvas.height / 2; const scaleFit = Math.min(canvas.width / img.width, canvas.height / img.height) * 0.8; 
+        const baseW = img.width * scaleFit; const baseH = img.height * scaleFit; 
+        const finalW = baseW * tempImageState.transform.scale; const finalH = baseH * tempImageState.transform.scale; 
+        // Convert percentage translation back to editor pixels for rendering
+        const drawX = centerX - finalW/2 + (tempImageState.transform.x * 500); 
+        const drawY = centerY - finalH/2 + (tempImageState.transform.y * 500);
+        ctx.drawImage(img, drawX, drawY, finalW, finalH);
+        if (tempImageState.annotations) tempImageState.annotations.forEach(anno => {
+           const color = anno.color || 'red'; const size = anno.size || 4; ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = size;
+           const sx = centerX + anno.x; const sy = centerY + anno.y; const ex = centerX + anno.endX; const ey = centerY + anno.endY;
+           if (anno.type === 'arrow') { ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke(); const ang = Math.atan2(ey - sy, ex - sx); const head = size * 4; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex - head * Math.cos(ang - Math.PI/6), ey - head * Math.sin(ang - Math.PI/6)); ctx.lineTo(ex - head * Math.cos(ang + Math.PI/6), ey - head * Math.sin(ang + Math.PI/6)); ctx.fill(); }
+           else if (anno.type === 'rect') { ctx.strokeRect(sx, sy, ex - sx, ey - sy); }
+           else if (anno.type === 'circle') { ctx.beginPath(); ctx.arc(sx, sy, Math.sqrt(Math.pow(ex-sx,2)+Math.pow(ey-sy,2)), 0, 2 * Math.PI); ctx.stroke(); }
+           else if (anno.type === 'scalebar') { ctx.lineWidth = size * 1.5; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, sy); ctx.stroke(); if(anno.content){ ctx.font = `bold 24px Arial`; ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.strokeText(anno.content, sx+(ex-sx)/2, sy-5); ctx.fillText(anno.content, sx+(ex-sx)/2, sy-5); } }
+           else if (anno.type === 'text') { ctx.font = `bold ${anno.size||24}px Arial`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.strokeText(anno.content, sx, sy); ctx.fillText(anno.content, sx, sy); }
+        });
+      }; img.onload = render; render();
+    }, [tempImageState, annoColor, annoWidth]);
+    const handleMouseDown = (e) => { const rect = canvasRef.current.getBoundingClientRect(); const x = e.clientX - rect.left; const y = e.clientY - rect.top; const cx = x - editorSize/2; const cy = y - editorSize/2; setIsDragging(true); if (editTool === 'move') { 
+        setDragStart({ x: x - (tempImageState.transform.x * 500), y: y - (tempImageState.transform.y * 500) }); 
+    } else if (['arrow', 'rect', 'circle', 'scalebar'].includes(editTool)) setDrawingStart({ x: cx, y: cy }); else if (editTool === 'text') { const text = prompt("Text:"); if (text) setTempImageState(prev => ({...prev, annotations: [...prev.annotations, {id: Date.now(), type:'text', x:cx, y:cy, content:text, color:annoColor, size:24}]})); setIsDragging(false); setEditTool('move'); } };
+    const handleMouseMove = (e) => { if (!isDragging) return; const rect = canvasRef.current.getBoundingClientRect(); const x = e.clientX - rect.left; const y = e.clientY - rect.top; if (editTool === 'move') {
+        const newX = (x - dragStart.x) / 500;
+        const newY = (y - dragStart.y) / 500;
+        setTempImageState(prev => ({...prev, transform: {...prev.transform, x: newX, y: newY}})); 
+    } };
+    const handleMouseUp = (e) => { if (!isDragging) return; setIsDragging(false); if (drawingStart) { const rect = canvasRef.current.getBoundingClientRect(); const x = e.clientX - rect.left; const y = e.clientY - rect.top; const cx = x - editorSize/2; const cy = y - editorSize/2; let newAnno = null; if (editTool === 'arrow') newAnno = {id:Date.now(), type:'arrow', x:drawingStart.x, y:drawingStart.y, endX:cx, endY:cy, color:annoColor, size:annoWidth}; else if (editTool === 'rect') newAnno = {id:Date.now(), type:'rect', x:drawingStart.x, y:drawingStart.y, endX:cx, endY:cy, color:annoColor, size:annoWidth}; else if (editTool === 'circle') newAnno = {id:Date.now(), type:'circle', x:drawingStart.x, y:drawingStart.y, endX:cx, endY:cy, color:annoColor, size:annoWidth}; else if (editTool === 'scalebar') { const l = prompt("Scale:"); if(l) newAnno = {id:Date.now(), type:'scalebar', x:drawingStart.x, y:drawingStart.y, endX:cx, endY:drawingStart.y, content:l, color:annoColor, size:annoWidth}; } if(newAnno) setTempImageState(prev => ({...prev, annotations: [...prev.annotations, newAnno]})); setDrawingStart(null); setEditTool('move'); } };
+    const undo = () => setTempImageState(prev => ({...prev, annotations: prev.annotations.slice(0, -1)}));
+    const colors = ['red', 'lime', 'blue', 'yellow', 'white', 'black'];
+    return (
+      <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+        <div className="bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="p-4 border-b flex justify-between items-center bg-slate-50"><h3 className="font-bold text-slate-700 flex items-center gap-2"><Edit3 size={18}/> 编辑</h3><div className="flex gap-2"><button onClick={saveEditing} className="px-3 py-1 bg-blue-600 text-white rounded text-sm">保存</button><button onClick={cancelEditing} className="px-3 py-1 text-slate-500 hover:bg-slate-200 rounded text-sm">取消</button></div></div>
+          <div className="flex flex-1 overflow-hidden">
+            <div className="w-16 bg-slate-100 border-r flex flex-col items-center py-4 gap-3 overflow-y-auto">
+               <button onClick={() => setEditTool('move')} className={`p-2 rounded ${editTool === 'move' ? 'bg-blue-200 text-blue-800' : 'text-slate-500'}`}><Move size={20}/></button><div className="h-px w-8 bg-slate-300 my-1"/>
+               <button onClick={() => setEditTool('arrow')} className={`p-2 rounded ${editTool === 'arrow' ? 'bg-blue-200 text-blue-800' : 'text-slate-500'}`}><ArrowRight size={20}/></button><button onClick={() => setEditTool('rect')} className={`p-2 rounded ${editTool === 'rect' ? 'bg-blue-200 text-blue-800' : 'text-slate-500'}`}><Square size={20}/></button><button onClick={() => setEditTool('circle')} className={`p-2 rounded ${editTool === 'circle' ? 'bg-blue-200 text-blue-800' : 'text-slate-500'}`}><Circle size={20}/></button><button onClick={() => setEditTool('scalebar')} className={`p-2 rounded ${editTool === 'scalebar' ? 'bg-blue-200 text-blue-800' : 'text-slate-500'}`}><Ruler size={20}/></button><button onClick={() => setEditTool('text')} className={`p-2 rounded ${editTool === 'text' ? 'bg-blue-200 text-blue-800' : 'text-slate-500'}`}><Type size={20}/></button>
+               <div className="h-px w-8 bg-slate-300 my-1"/><div className="flex flex-col gap-1">{colors.map(c => (<button key={c} onClick={() => setAnnoColor(c)} className={`w-6 h-6 rounded-full border border-slate-300 ${annoColor === c ? 'ring-2 ring-blue-400' : ''}`} style={{backgroundColor: c}}/>))}</div><div className="flex flex-col items-center mt-2"><span className="text-[10px] text-slate-500">Line</span><input type="range" min="1" max="10" value={annoWidth} onChange={(e) => setAnnoWidth(parseInt(e.target.value))} className="w-10 h-1 accent-slate-600"/></div><div className="h-px w-8 bg-slate-300 my-2"/><button onClick={undo} className="p-2 text-slate-500 hover:bg-red-100 hover:text-red-500 rounded"><Minus size={20}/></button>
+            </div>
+            <div className="relative bg-slate-800 p-4 flex items-center justify-center flex-1"><canvas ref={canvasRef} width={editorSize} height={editorSize} className="bg-white shadow-lg cursor-crosshair" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}/><div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/90 px-4 py-2 rounded-full shadow-lg flex items-center gap-3 z-10"><span className="text-xs font-bold text-slate-500">Zoom</span><input type="range" min="0.5" max="3" step="0.1" value={tempImageState.transform.scale} onChange={(e) => setTempImageState(prev => ({...prev, transform: {...prev.transform, scale: parseFloat(e.target.value)}}))} className="w-32 accent-blue-600"/><span className="text-xs text-slate-600 w-8 text-right">{Math.round(tempImageState.transform.scale * 100)}%</span></div></div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex flex-col h-screen bg-slate-50 text-slate-900 font-sans">
+      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
+        <div className="flex items-center gap-3">
+          <div className="bg-blue-600 text-white p-2 rounded-lg">
+            <LayoutGrid size={24} />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-slate-800">论文拼图生成器</h1>
+            <p className="text-xs text-slate-500">Paper Figure Assembler</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+           <button onClick={() => setShowLegendModal(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-md font-medium border border-indigo-200 mr-2">
+             <FileText size={18} /><span>撰写图注</span>
+           </button>
+           <label className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md cursor-pointer font-medium">
+            <Upload size={18} /><span>添加图片</span>
+            <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileUpload} />
+          </label>
+          <div className="flex bg-blue-600 rounded-md shadow-md overflow-hidden">
+             <button onClick={handleExportPNG} disabled={images.length === 0 || isExporting} className="flex items-center gap-2 px-4 py-2 font-bold text-white border-r border-blue-700 hover:bg-blue-700 disabled:bg-slate-300">
+              {isExporting ? '生成中...' : 'PNG'} {!isExporting && <Download size={18} />}
+            </button>
+            <button onClick={handleExportPDF} disabled={images.length === 0 || isExporting || !pdfLibLoaded} className="flex items-center gap-2 px-3 py-2 font-bold text-white hover:bg-blue-700 disabled:bg-slate-300">
+              PDF <FileDown size={18} />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex flex-1 overflow-hidden relative">
+        <aside className="w-80 bg-white border-r border-slate-200 overflow-y-auto custom-scrollbar flex flex-col shrink-0">
+          <div className="p-5 space-y-8">
+            <section>
+              <h3 className="flex items-center gap-2 font-bold text-slate-800 mb-4 text-sm uppercase tracking-wider"><Grid3X3 size={16} /> 布局设置</h3>
+              <div className="space-y-4">
+                <div><label className="text-sm text-slate-600 mb-1 block">列数: {columns}</label><input type="range" min="1" max="6" step="1" value={columns} onChange={(e) => setColumns(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg accent-blue-600" /></div>
+                <div><label className="text-sm text-slate-600 mb-1 block">间距: {gap}px</label><input type="range" min="0" max="100" value={gap} onChange={(e) => setGap(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg accent-blue-600" /></div>
+                <div><label className="text-sm text-slate-600 mb-1 block">宽高比</label><select value={aspectRatio} onChange={(e) => setAspectRatio(parseFloat(e.target.value))} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-md text-sm"><option value={1}>1:1 (正方形)</option><option value={0.75}>4:3 (标准照片)</option><option value={0.75}>3:4 (竖版照片)</option><option value={1.777}>16:9 (宽屏)</option></select></div>
+                 <div><div className="grid grid-cols-2 gap-2"><button onClick={() => setFitMode('cover')} className={`px-3 py-2 text-xs rounded-md border ${fitMode === 'cover' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white text-slate-600'}`}>裁剪填充</button><button onClick={() => setFitMode('contain')} className={`px-3 py-2 text-xs rounded-md border ${fitMode === 'contain' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white text-slate-600'}`}>完整显示</button></div></div>
+                 <div><label className="text-sm text-slate-600 mb-1 block">背景颜色</label><div className="flex gap-2"><button onClick={() => setBackgroundColor('#ffffff')} className={`w-6 h-6 rounded-full border border-slate-300 bg-white ${backgroundColor === '#ffffff' ? 'ring-2 ring-blue-500' : ''}`} title="白色"/><button onClick={() => setBackgroundColor('#000000')} className={`w-6 h-6 rounded-full border border-slate-300 bg-black ${backgroundColor === '#000000' ? 'ring-2 ring-blue-500' : ''}`} title="黑色"/><input type="color" value={backgroundColor} onChange={(e) => setBackgroundColor(e.target.value)} className="w-6 h-6 rounded-full border-none p-0 overflow-hidden cursor-pointer" title="自定义"/></div></div>
+              </div>
+            </section>
+            <hr className="border-slate-100" />
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="flex items-center gap-2 font-bold text-slate-800 text-sm uppercase tracking-wider"><Type size={16} /> 标签设置</h3>
+                <label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} className="sr-only peer" /><div className="w-9 h-5 bg-slate-200 peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div></label>
+              </div>
+              <div className={`space-y-4 transition-opacity ${showLabels ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+                 <div className="flex bg-slate-100 p-1 rounded-md"><button onClick={() => setLabelStyle('uppercase')} className={`flex-1 py-1 text-xs rounded ${labelStyle === 'uppercase' ? 'bg-white shadow text-blue-600 font-bold' : 'text-slate-500'}`}>A, B</button><button onClick={() => setLabelStyle('lowercase')} className={`flex-1 py-1 text-xs rounded ${labelStyle === 'lowercase' ? 'bg-white shadow text-blue-600 font-bold' : 'text-slate-500'}`}>a, b</button><button onClick={() => setLabelStyle('number')} className={`flex-1 py-1 text-xs rounded ${labelStyle === 'number' ? 'bg-white shadow text-blue-600 font-bold' : 'text-slate-500'}`}>1, 2</button></div>
+                <div><label className="text-sm text-slate-600 mb-1 block">大小: {labelSize}px</label><input type="range" min="12" max="100" value={labelSize} onChange={(e) => setLabelSize(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg accent-blue-600" /></div>
+                <div><label className="text-sm text-slate-600 mb-1 block">偏移量</label><input type="range" min="0" max="100" value={labelOffset} onChange={(e) => setLabelOffset(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg accent-blue-600" /></div>
+                <div><label className="text-sm text-slate-600 mb-1 block">标签颜色</label><div className="flex gap-2"><button onClick={() => setLabelColor('#000000')} className={`w-6 h-6 rounded-full border border-slate-300 bg-black ${labelColor === '#000000' ? 'ring-2 ring-blue-500' : ''}`} title="黑色"/><button onClick={() => setLabelColor('#ffffff')} className={`w-6 h-6 rounded-full border border-slate-300 bg-white ${labelColor === '#ffffff' ? 'ring-2 ring-blue-500' : ''}`} title="白色"/></div></div>
+              </div>
+            </section>
+             <hr className="border-slate-100" />
+             <section>
+               <h3 className="flex items-center gap-2 font-bold text-slate-800 mb-4 text-sm uppercase tracking-wider"><Settings size={16} /> 导出设置</h3>
+               <label className="flex items-center justify-between cursor-pointer p-2 hover:bg-slate-50 rounded"><span className="text-sm text-slate-700">导出时包含标签</span><input type="checkbox" checked={exportWithLabels} onChange={(e) => setExportWithLabels(e.target.checked)} className="accent-blue-600 w-4 h-4" /></label>
+             </section>
+            
+            <section className="pt-4 border-t border-slate-100">
+               <button onClick={() => setImages([])} className="flex items-center justify-center gap-2 w-full py-2 text-sm text-red-500 border border-red-200 rounded-md hover:bg-red-50 transition-colors"><Trash2 size={16} /> 清空所有图片</button>
+            </section>
+          </div>
+        </aside>
+
+        <div className="flex-1 bg-slate-100 p-8 overflow-auto flex justify-center items-start">
+          {images.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-slate-400 border-2 border-dashed border-slate-300 rounded-xl p-12 w-full max-w-2xl bg-white/50">
+              <ImageIcon size={64} className="mb-4 opacity-50" />
+              <h3 className="text-lg font-medium text-slate-600">暂无图片</h3>
+              <p className="text-sm mb-6">点击右上角“添加图片”或直接将图片文件拖入</p>
+            </div>
+          ) : (
+            <div className="bg-white shadow-2xl transition-all duration-300 ease-in-out" style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, 1fr)`, gap: `${gap}px`, padding: '20px', width: '100%', maxWidth: '1000px', gridAutoFlow: 'dense', backgroundColor: backgroundColor }}>
+              {images.map((img, index) => (
+                <div 
+                  key={img.id} 
+                  draggable 
+                  onDragStart={(e) => handleDragStart(e, index)} 
+                  onDragOver={(e) => handleDragOver(e, index)} 
+                  onDragEnd={handleDragEnd} 
+                  className={`relative group overflow-hidden cursor-move border border-transparent hover:border-blue-400 transition-colors ${draggedItemIndex === index ? 'opacity-50' : 'opacity-100'}`} 
+                  style={{ 
+                    aspectRatio: `${aspectRatio * (img.colSpan || 1) / (img.rowSpan || 1)}`,
+                    gridColumn: `span ${img.colSpan || 1}`,
+                    gridRow: `span ${img.rowSpan || 1}`,
+                    backgroundColor: backgroundColor 
+                  }}
+                >
+                  <div 
+                    className="w-full h-full overflow-hidden relative pointer-events-none"
+                    style={{ padding: `${img.padding || 0}%` }}
+                  >
+                    <img 
+                      src={img.url} 
+                      alt="" 
+                      className="absolute max-w-none" 
+                      style={{ 
+                        width: (img.fit || fitMode) === 'cover' ? '100%' : 'auto', 
+                        height: (img.fit || fitMode) === 'cover' ? '100%' : 'auto', 
+                        maxWidth: '100%', maxHeight: '100%',
+                        objectFit: img.fit || fitMode,
+                        top: '50%', left: '50%', 
+                        transform: `translate(-50%, -50%) translate(${img.transform?.x * 100}%, ${img.transform?.y * 100}%) scale(${img.transform?.scale || 1})`,
+                        position: 'absolute'
+                      }} 
+                    />
+                  </div>
+                  
+                  {img.annotations?.length > 0 && (<div className="absolute inset-0 pointer-events-none flex items-center justify-center"><span className="bg-black/50 text-white text-[10px] px-1 rounded backdrop-blur-sm">{img.annotations.length} 个批注</span></div>)}
+                  
+                  {showLabels && (<div className="absolute pointer-events-none z-10" style={{ top: `${labelOffset}px`, left: `${labelOffset}px`, fontSize: `${labelSize}px`, fontFamily: fontFamily, fontWeight: labelWeight, lineHeight: 1, color: labelColor }}>{getLabelText(index)}</div>)}
+                  
+                  {/* Controls Overlay */}
+                  <div className="absolute bottom-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20 bg-white/95 rounded shadow-sm px-2 py-1 border border-slate-200 items-center">
+                    <button onClick={() => handleAutoResize(index)} className="p-1 hover:bg-purple-100 text-purple-600 rounded mr-2" title="Auto-Size"><Sparkles size={14} /></button>
+                    <div className="h-4 w-px bg-slate-300 mx-1"></div>
+                    
+                    {/* Width Control */}
+                    <div className="flex items-center gap-1">
+                      <MoveHorizontal size={12} className="text-slate-500"/>
+                      <button onClick={() => adjustImageSpan(index, 'colSpan', -1)} className="w-4 h-4 flex items-center justify-center hover:bg-slate-100 rounded text-[10px] text-slate-600 font-bold">-</button>
+                      <span className="w-4 text-[10px] text-center font-mono">{img.colSpan || 1}</span>
+                      <button onClick={() => adjustImageSpan(index, 'colSpan', 1)} className="w-4 h-4 flex items-center justify-center hover:bg-slate-100 rounded text-[10px] text-slate-600 font-bold">+</button>
+                    </div>
+
+                    <div className="h-4 w-px bg-slate-300 mx-1"></div>
+
+                    {/* Height Control */}
+                    <div className="flex items-center gap-1">
+                      <MoveVertical size={12} className="text-slate-500"/>
+                      <button onClick={() => adjustImageSpan(index, 'rowSpan', -1)} className="w-4 h-4 flex items-center justify-center hover:bg-slate-100 rounded text-[10px] text-slate-600 font-bold">-</button>
+                      <span className="w-4 text-[10px] text-center font-mono">{img.rowSpan || 1}</span>
+                      <button onClick={() => adjustImageSpan(index, 'rowSpan', 1)} className="w-4 h-4 flex items-center justify-center hover:bg-slate-100 rounded text-[10px] text-slate-600 font-bold">+</button>
+                    </div>
+
+                    <div className="h-4 w-px bg-slate-300 mx-1"></div>
+                    
+                    {/* Zoom Controls (New) */}
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => updateImageScale(index, -0.1)} className="text-slate-500 hover:text-blue-600" title="Zoom Out"><ZoomIn size={12} className="rotate-180" /></button>
+                      <button onClick={() => updateImageScale(index, 0.1)} className="text-slate-500 hover:text-blue-600" title="Zoom In"><ZoomIn size={12} /></button>
+                    </div>
+
+                    <div className="h-4 w-px bg-slate-300 mx-1"></div>
+
+                    {/* Padding Controls */}
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => updateImagePadding(index, 1)} className="text-slate-500 hover:text-blue-600" title="增加内边距 (缩小图片)"><Minimize size={12} /></button>
+                      <span className="text-[10px] w-6 text-center text-slate-600" title="内边距 (Padding)">{img.padding || 0}%</span>
+                      <button onClick={() => updateImagePadding(index, -1)} className="text-slate-500 hover:text-blue-600" title="减少内边距 (放大图片)"><Maximize2 size={12} /></button>
+                    </div>
+                    
+                    <div className="h-4 w-px bg-slate-300 mx-1"></div>
+                    <button onClick={() => toggleImageFit(index)} className={`p-1 rounded ${ (img.fit || fitMode) === 'cover' ? 'text-slate-500 hover:bg-slate-100' : 'text-blue-600 bg-blue-50' }`} title="切换填充模式">{(img.fit || fitMode) === 'cover' ? <Scan size={14} /> : <Scaling size={14} />}</button>
+                    
+                    <div className="h-4 w-px bg-slate-300 mx-1"></div>
+                    <button onClick={() => resetImageTransform(index)} className="p-1 text-slate-400 hover:text-red-500 rounded" title="重置位置和缩放"><RefreshCcw size={12} /></button>
+                  </div>
+
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                    <button onClick={() => startEditing(img.id)} className="bg-blue-600 text-white p-1.5 rounded hover:bg-blue-700 shadow-sm" title="编辑"><Edit3 size={14} /></button>
+                    <button onClick={() => removeImage(index)} className="bg-red-500 text-white p-1.5 rounded hover:bg-red-600 shadow-sm" title="移除"><X size={14} /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Legend Builder Modal (Reused for Methods & Reviewer) */}
+        {showLegendModal && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+              <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+                <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2"><FileText className="text-blue-600" /> 图注生成器</h3>
+                <button onClick={() => setShowLegendModal(false)} className="p-1 hover:bg-slate-100 rounded-full text-slate-500"><X size={20} /></button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="col-span-1"><label className="block text-sm font-medium text-slate-700 mb-1">Figure No.</label><input type="text" value={figNumber} onChange={(e) => setFigNumber(e.target.value)} className="w-full border border-slate-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="1" /></div>
+                  <div className="col-span-3">
+                    <label className="block text-sm font-medium text-slate-700 mb-1 flex justify-between">
+                      标题
+                      <button 
+                        onClick={handleGenerateTitle}
+                        disabled={isGeneratingTitle}
+                        className="text-xs flex items-center gap-1 text-purple-600 hover:text-purple-700 disabled:opacity-50"
+                      >
+                        {isGeneratingTitle ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                        AI 智能总结标题
+                      </button>
+                    </label>
+                    <input type="text" value={figTitle} onChange={(e) => setFigTitle(e.target.value)} className="w-full border border-slate-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="AI Generate Title..." />
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-slate-700 border-b pb-2">描述</h4>
+                  {images.map((img, index) => (
+                    <div key={img.id} className="flex gap-3 items-start group/row">
+                      <div className="w-8 pt-2 text-center font-bold text-slate-500">{getLabelText(index)}</div>
+                      <div className="flex-1 relative">
+                        <textarea value={imageDescriptions[img.id] || ''} onChange={(e) => setImageDescriptions({...imageDescriptions, [img.id]: e.target.value})} className="w-full border border-slate-200 rounded-md p-2 text-sm focus:border-blue-400 outline-none min-h-[60px] resize-none pr-10" />
+                        <div className="absolute top-2 right-2 flex gap-1">
+                          <button onClick={() => handlePolishDescription(img.id, imageDescriptions[img.id])} disabled={polishingIds[img.id]} className="p-1.5 text-blue-500 bg-blue-50 hover:bg-blue-100 rounded-md transition-all group-hover/row:opacity-100 opacity-60" title="AI 润色/翻译 (Polish/Translate)">
+                            {polishingIds[img.id] ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
+                          </button>
+                          <button onClick={() => handleAIAnalyze(img.id, img.url)} disabled={analyzingIds[img.id]} className="p-1.5 text-purple-500 bg-purple-50 hover:bg-purple-100 rounded-md transition-all group-hover/row:opacity-100 opacity-60" title="AI 分析单图">
+                            {analyzingIds[img.id] ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                  <p className="text-sm text-slate-800 leading-relaxed font-serif"><strong className="text-black">Figure {figNumber}. {figTitle || 'Title.'}</strong> {images.map((img, index) => { const desc = imageDescriptions[img.id]; if (!desc) return null; return <span key={img.id}> <strong>({getLabelText(index)})</strong> {desc.trim().replace(/\.$/, '')}. </span> })}</p>
+                </div>
+              </div>
+              <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 rounded-b-xl items-center">
+                 <div className="flex gap-2 mr-auto">
+                   <button onClick={() => handleGenerateResults()} disabled={isGeneratingResults} className="flex items-center gap-1 px-3 py-2 bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 rounded-md text-xs font-medium transition-colors">
+                      {isGeneratingResults ? <Loader2 size={14} className="animate-spin" /> : <BookOpen size={14} />}
+                      Results
+                   </button>
+                   <button onClick={() => handleGenerateMethods()} disabled={isGeneratingMethods} className="flex items-center gap-1 px-3 py-2 bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 rounded-md text-xs font-medium transition-colors">
+                      {isGeneratingMethods ? <Loader2 size={14} className="animate-spin" /> : <FlaskConical size={14} />}
+                      Methods
+                   </button>
+                   <button onClick={() => handleReviewerCheck()} disabled={isCheckingReview} className="flex items-center gap-1 px-3 py-2 bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 rounded-md text-xs font-medium transition-colors">
+                      {isCheckingReview ? <Loader2 size={14} className="animate-spin" /> : <UserCheck size={14} />}
+                      Reviewer
+                   </button>
+                 </div>
+                 <button onClick={() => setShowLegendModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-md text-sm font-medium">关闭</button>
+                 <button onClick={copyLegend} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors">{copied ? <Check size={16} /> : <Copy size={16} />}{copied ? '已复制！' : '复制到剪贴板'}</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Text Generator Modal (Reusable) */}
+        {showTextModal && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 border-b border-blue-100 flex justify-between items-center">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2"><Bot size={20} /> {modalTitle}</h3>
+                <button onClick={() => setShowTextModal(false)} className="p-1 hover:bg-white/50 rounded-full text-slate-500"><X size={20} /></button>
+              </div>
+              <div className="p-6 overflow-y-auto max-h-[60vh]">
+                 {isGeneratingText ? (
+                   <div className="flex flex-col items-center justify-center py-8 gap-3 text-slate-500">
+                     <Loader2 size={32} className="animate-spin text-blue-500" />
+                     <p>AI 正在思考中...</p>
+                   </div>
+                 ) : (
+                   <div className="bg-slate-50 p-4 rounded border border-slate-200">
+                     <textarea 
+                        value={generatedText} 
+                        readOnly 
+                        className="w-full h-64 bg-transparent border-none resize-none focus:ring-0 text-sm leading-relaxed text-slate-700 font-serif"
+                     />
+                   </div>
+                 )}
+              </div>
+              <div className="p-4 bg-slate-50 border-t flex justify-end gap-2">
+                <button onClick={() => setShowTextModal(false)} className="px-4 py-2 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-md text-sm font-medium">关闭</button>
+                <button 
+                  onClick={() => {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = generatedText;
+                    textArea.style.position = "fixed";
+                    textArea.style.left = "-9999px";
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    try {
+                      document.execCommand('copy');
+                      alert("文本已复制！");
+                    } catch (e) {
+                      console.error(e);
+                      alert("复制失败，请手动复制。");
+                    }
+                    document.body.removeChild(textArea);
+                  }} 
+                  className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-medium"
+                >
+                  复制文本
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <ImageEditorModal />
+      </main>
+    </div>
+  );
+}
