@@ -1,0 +1,790 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { 
+  Download, 
+  Search, 
+  Layout, 
+  Type, 
+  Palette, 
+  FileText, 
+  RefreshCw, 
+  Printer, 
+  CheckCircle,
+  AlertCircle,
+  Monitor,
+  Smartphone,
+  Image as ImageIcon,
+  ExternalLink,
+  Maximize,
+  Sparkles,
+  Loader2,
+  Wand2,
+  School,
+  Mail,
+  QrCode,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Plus,
+  Trash2,
+  GripVertical,
+  Upload,
+  Move,
+  LayoutTemplate,
+  X,
+  ImageIcon as LogoIcon
+} from 'lucide-react';
+
+// --- 配置与工具 ---
+
+const THEMES = {
+  modernBlue: {
+    id: 'modernBlue',
+    name: '科研蓝 (Science Blue)',
+    headerGradient: 'bg-gradient-to-r from-blue-900 to-blue-800',
+    blockHeader: 'bg-blue-800 text-white',
+    bg: 'bg-slate-50',
+    border: 'border-blue-900',
+    font: 'font-sans'
+  },
+  ecoGreen: {
+    id: 'ecoGreen',
+    name: '生物绿 (Bio Green)',
+    headerGradient: 'bg-gradient-to-r from-emerald-800 to-emerald-700',
+    blockHeader: 'bg-emerald-800 text-white',
+    bg: 'bg-stone-50',
+    border: 'border-emerald-900',
+    font: 'font-serif'
+  },
+  universityRed: {
+    id: 'universityRed',
+    name: '大学红 (Uni Red)',
+    headerGradient: 'bg-gradient-to-r from-red-900 to-red-800',
+    blockHeader: 'bg-red-900 text-white',
+    bg: 'bg-white',
+    border: 'border-red-900',
+    font: 'font-sans'
+  },
+  darkMode: {
+    id: 'darkMode',
+    name: '深色模式 (Dark Mode)',
+    headerGradient: 'bg-slate-900',
+    blockHeader: 'bg-slate-800 text-blue-200 border-l-4 border-blue-400',
+    bg: 'bg-slate-700 text-white', 
+    border: 'border-slate-600',
+    font: 'font-sans'
+  }
+};
+
+// 辅助函数：生成唯一ID
+const generateId = () => Math.random().toString(36).substr(2, 9);
+
+// 预设模板数据
+const LAYOUT_TEMPLATES = {
+  classic: {
+    label: "经典 (3列)",
+    cols: 3,
+    data: [
+      [
+        { id: 'b1', type: 'text', title: 'Abstract', content: '输入 DOI 后，AI 将自动从数据库拉取并重组摘要内容。' },
+        { id: 'b2', type: 'text', title: 'Introduction', content: '在这里介绍研究背景。您可以输入简单的要点，然后使用 AI 将其扩展为通顺的段落。' },
+        { id: 'b3', type: 'text', title: 'Methods', content: '描述您的研究设计。海报通常需要简洁的方法描述。' },
+      ],
+      [
+        { id: 'b4', type: 'image', title: 'Results (Figure)', content: 'Figure 1. Performance comparison between proposed method and baseline.', imageSrc: '' },
+        { id: 'b5', type: 'text', title: 'Results (Discussion)', content: '展示您的主要发现。\n\n- 关键发现点 1\n- 关键发现点 2' },
+      ],
+      [
+        { id: 'b6', type: 'text', title: 'Conclusion', content: '总结研究的主要结论及其意义。讨论局限性和未来的研究方向。' },
+        { id: 'b7', type: 'text', title: 'References', content: '1. Smith, J. et al. (2023). Journal of Science.\n2. Doe, A. (2022). Academic Review.' },
+      ]
+    ]
+  },
+  visual: {
+    label: "视觉 (2列)",
+    cols: 2,
+    data: [
+      [
+        { id: 'v1', type: 'text', title: 'Abstract & Intro', content: '摘要与背景介绍...' },
+        { id: 'v2', type: 'text', title: 'Methods', content: '研究方法...' },
+        { id: 'v3', type: 'text', title: 'Conclusion', content: '结论...' },
+      ],
+      [
+        { id: 'v4', type: 'image', title: 'Main Results', content: 'Figure 1. Key visual evidence.', imageSrc: '' },
+        { id: 'v5', type: 'image', title: 'Secondary Data', content: 'Table 1. Statistical analysis.', imageSrc: '' },
+        { id: 'v6', type: 'text', title: 'Discussion', content: '结果讨论...' },
+      ]
+    ]
+  },
+  dense: {
+    label: "密集 (4列)",
+    cols: 4,
+    data: [
+      [{ id: 'd1', type: 'text', title: 'Abstract', content: '...' }, { id: 'd2', type: 'text', title: 'Intro', content: '...' }],
+      [{ id: 'd3', type: 'text', title: 'Methods', content: '...' }, { id: 'd4', type: 'image', title: 'Fig 1', content: '...', imageSrc: '' }],
+      [{ id: 'd5', type: 'text', title: 'Results', content: '...' }, { id: 'd6', type: 'image', title: 'Fig 2', content: '...', imageSrc: '' }],
+      [{ id: 'd7', type: 'text', title: 'Conclusion', content: '...' }, { id: 'd8', type: 'text', title: 'References', content: '...' }]
+    ]
+  }
+};
+
+const INITIAL_HEADER = {
+  title: "A Novel Approach to Academic Poster Generation Using React and AI Agents",
+  authors: "Alex Chen, Sarah Johnson, and David Lee",
+  affiliation: "Department of Computer Science, University of Technology, Shanghai, China",
+  doi: ""
+};
+
+const INITIAL_FOOTER = {
+  acknowledgements: "We thank the NSF for funding this research (Grant No. 123456).",
+  contact: "Email: author@university.edu | Web: www.lab-site.com"
+};
+
+export default function AcademicPosterGenerator() {
+  // State
+  const [header, setHeader] = useState(INITIAL_HEADER);
+  const [footer, setFooter] = useState(INITIAL_FOOTER);
+  // 默认使用经典模板
+  const [columns, setColumns] = useState(JSON.parse(JSON.stringify(LAYOUT_TEMPLATES.classic.data)));
+  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [activeTheme, setActiveTheme] = useState(THEMES.modernBlue);
+  
+  // Customization State
+  const [customBg, setCustomBg] = useState(''); // 自定义背景色
+  const [logos, setLogos] = useState({ left: '', right: '' }); // 左右 Logo
+  
+  // Layout
+  const [layoutCols, setLayoutCols] = useState(3);
+  const [layoutFormat, setLayoutFormat] = useState('landscape_4_3'); 
+  
+  // Preview
+  const [scale, setScale] = useState(0.12); 
+  const previewContainerRef = useRef(null);
+  const [aiLoading, setAiLoading] = useState({});
+
+  // Drag & Drop State
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [dragOverItem, setDragOverItem] = useState(null);
+
+  // --- 模板应用 ---
+  const applyTemplate = (templateKey) => {
+    if(!window.confirm("应用模板将覆盖当前的排版内容，确定继续吗？")) return;
+    
+    const template = LAYOUT_TEMPLATES[templateKey];
+    // 深拷贝数据以避免引用问题，并重新生成ID防止冲突
+    const newCols = JSON.parse(JSON.stringify(template.data));
+    newCols.forEach(col => col.forEach(block => block.id = generateId()));
+    
+    setLayoutCols(template.cols);
+    setColumns(newCols);
+  };
+
+  // --- 布局列数变更处理 ---
+  useEffect(() => {
+    // 仅当列数真的变化且与当前列数不符时才重新分配
+    // 这避免了手动调整 col 后被重置，但也支持通过 layoutCols 状态驱动变化
+    if (columns.length === layoutCols) return;
+
+    const allBlocks = columns.flat();
+    const newColumns = Array.from({ length: layoutCols }, () => []);
+    
+    allBlocks.forEach((block, index) => {
+      const colIndex = index % layoutCols; 
+      newColumns[colIndex].push(block);
+    });
+    
+    setColumns(newColumns);
+  }, [layoutCols]);
+
+  // --- Gemini API ---
+  const callGeminiAPI = async (prompt) => {
+    const apiKey = ""; 
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+        }
+      );
+      if (!response.ok) throw new Error(`API Error: ${response.status}`);
+      const json = await response.json();
+      return json.candidates?.[0]?.content?.parts?.[0]?.text || "AI 生成失败，请重试。";
+    } catch (error) {
+      console.error("Gemini API Error:", error);
+      throw error;
+    }
+  };
+
+  const handleAIOptimize = async (blockId, currentText, sectionTitle) => {
+    setAiLoading(prev => ({ ...prev, [blockId]: true }));
+    setError(null);
+    const contextTitle = header.title;
+    
+    let prompt = "";
+    if (!currentText || currentText.length < 10) {
+      prompt = `Role: Academic Research Assistant.
+Task: Write a draft for the "${sectionTitle}" section of an academic poster based on the title: "${contextTitle}".
+Requirements:
+1. Keep it concise, professional.
+2. Use bullet points where appropriate.
+3. Detect language and output in SAME language as title.
+4. Output ONLY content.`;
+    } else {
+      prompt = `Role: Academic Editor.
+Task: Rewrite text for an academic poster section ("${sectionTitle}").
+Input: "${currentText}"
+Title: "${contextTitle}"
+Requirements:
+1. Concise and impactful.
+2. Improve academic tone.
+3. Detect language of input and output in SAME language.
+4. Output ONLY revised content.`;
+    }
+
+    try {
+      const newText = await callGeminiAPI(prompt);
+      updateBlockContent(blockId, newText);
+    } catch (err) {
+      setError("AI 连接失败，请稍后重试。");
+    } finally {
+      setAiLoading(prev => ({ ...prev, [blockId]: false }));
+    }
+  };
+
+  // --- 数据操作 ---
+  const updateHeader = (field, value) => setHeader(prev => ({ ...prev, [field]: value }));
+  const updateFooter = (field, value) => setFooter(prev => ({ ...prev, [field]: value }));
+  
+  const updateBlockContent = (id, newContent) => {
+    setColumns(prevCols => prevCols.map(col => 
+      col.map(block => block.id === id ? { ...block, content: newContent } : block)
+    ));
+  };
+
+  const updateBlockTitle = (id, newTitle) => {
+    setColumns(prevCols => prevCols.map(col => 
+      col.map(block => block.id === id ? { ...block, title: newTitle } : block)
+    ));
+  };
+
+  const handleImageUpload = (id, file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setColumns(prevCols => prevCols.map(col => 
+        col.map(block => block.id === id ? { ...block, imageSrc: e.target.result } : block)
+      ));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleLogoUpload = (side, file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setLogos(prev => ({ ...prev, [side]: e.target.result }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const addBlock = (colIndex, type) => {
+    const newBlock = {
+      id: generateId(),
+      type: type,
+      title: type === 'text' ? 'New Section' : 'New Figure',
+      content: type === 'text' ? 'Add your content here...' : 'Figure caption here...',
+      imageSrc: ''
+    };
+    setColumns(prev => {
+      const newCols = [...prev];
+      newCols[colIndex] = [...newCols[colIndex], newBlock];
+      return newCols;
+    });
+  };
+
+  const removeBlock = (id) => {
+    if(!window.confirm("确定删除此模块吗？")) return;
+    setColumns(prev => prev.map(col => col.filter(b => b.id !== id)));
+  };
+
+  // --- 拖拽逻辑 (在 Sidebar 中操作) ---
+  const onDragStart = (e, colIndex, blockIndex) => {
+    setDraggedItem({ colIndex, blockIndex });
+  };
+
+  const onDragEnter = (e, colIndex, blockIndex) => {
+    e.preventDefault();
+    setDragOverItem({ colIndex, blockIndex });
+  };
+
+  const onDragEnd = () => {
+    if (!draggedItem || !dragOverItem) {
+      setDraggedItem(null);
+      setDragOverItem(null);
+      return;
+    }
+
+    const newColumns = [...columns];
+    const item = newColumns[draggedItem.colIndex].splice(draggedItem.blockIndex, 1)[0];
+    newColumns[dragOverItem.colIndex].splice(dragOverItem.blockIndex, 0, item);
+
+    setColumns(newColumns);
+    setDraggedItem(null);
+    setDragOverItem(null);
+  };
+
+  // --- Metadata Fetching ---
+  const extractDOI = (input) => {
+    const doiRegex = /10.\d{4,9}\/[-._;()/:a-zA-Z0-9]+/;
+    const match = input.match(doiRegex);
+    return match ? match[0] : input;
+  };
+
+  const fetchMetadata = async () => {
+    if (!header.doi) return;
+    setLoading(true);
+    setError(null);
+    const cleanDOI = extractDOI(header.doi);
+
+    try {
+      const response = await fetch(`https://api.openalex.org/works/https://doi.org/${cleanDOI}`);
+      if (!response.ok) throw new Error("未找到该 DOI 对应的论文");
+      const work = await response.json();
+
+      const authorListRaw = work.authorships || [];
+      let authorsDisplay = authorListRaw.slice(0, 3).map(a => a.author.display_name).join(", ");
+      if (authorListRaw.length > 3) authorsDisplay += " et al.";
+      
+      const firstInstitution = authorListRaw[0]?.institutions?.[0]?.display_name || "Unknown Institution";
+
+      // Reconstruct abstract
+      let aiAbstract = "Abstract not available.";
+      if (work.abstract_inverted_index) {
+        const index = work.abstract_inverted_index;
+        const len = Math.max(...Object.values(index).flat()) + 1;
+        const arr = new Array(len);
+        Object.entries(index).forEach(([word, positions]) => {
+          positions.forEach(pos => arr[pos] = word);
+        });
+        aiAbstract = arr.join(" ");
+      }
+
+      setHeader(prev => ({
+        ...prev,
+        title: work.title || prev.title,
+        authors: authorsDisplay,
+        affiliation: firstInstitution,
+      }));
+
+      // 更新第一个模块的内容 (通常是摘要)
+      updateBlockContent(columns[0][0]?.id, aiAbstract); 
+      
+      // 更新参考文献 (如果有)
+      const lastCol = columns[columns.length-1];
+      if(lastCol.length > 0) {
+         const lastBlock = lastCol[lastCol.length-1];
+         const refText = `Source: ${work.primary_location?.source?.display_name || 'Journal'}, ${work.publication_year}. DOI: ${cleanDOI}`;
+         updateBlockContent(lastBlock.id, refText);
+      }
+
+    } catch (err) {
+      setError(err.message || "获取数据失败");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- 物理尺寸定义 ---
+  const getPosterDimensions = () => {
+    if (layoutFormat === 'portrait') {
+      return { widthMm: 841, heightMm: 1189, label: 'A0 (841x1189mm)', printSize: '841mm 1189mm' }; 
+    } else if (layoutFormat === 'landscape_4_3') {
+      return { widthMm: 1219, heightMm: 914, label: '4:3 (1219x914mm)', printSize: '1219mm 914mm' }; 
+    } else {
+      return { widthMm: 1600, heightMm: 900, label: '16:9 (1600x900mm)', printSize: '1600mm 900mm' };
+    }
+  };
+  const dims = getPosterDimensions();
+
+  const fitToScreen = () => {
+    if (previewContainerRef.current) {
+      const containerWidth = previewContainerRef.current.clientWidth - 60;
+      const containerHeight = previewContainerRef.current.clientHeight - 60;
+      const scaleX = containerWidth / (dims.widthMm * 3.78);
+      const scaleY = containerHeight / (dims.heightMm * 3.78);
+      const bestScale = Math.min(scaleX, scaleY) * 3.5;
+      setScale(Math.max(0.05, bestScale)); 
+    }
+  };
+
+  useEffect(() => { fitToScreen(); }, [layoutFormat]);
+
+  return (
+    <div className="flex flex-col h-screen bg-gray-100 font-sans overflow-hidden">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-sm z-10 shrink-0">
+        <div className="flex items-center gap-2">
+          <Layout className="text-blue-600 w-6 h-6" />
+          <h1 className="text-xl font-bold text-gray-800">PosterGen AI (Modular Pro)</h1>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="hidden md:flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200">
+            <input 
+              type="text" 
+              placeholder="输入 DOI (如 10.1038/...)" 
+              className="bg-transparent border-none outline-none px-3 py-1 text-sm w-56"
+              value={header.doi}
+              onChange={(e) => updateHeader('doi', e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && fetchMetadata()}
+            />
+            <button onClick={fetchMetadata} disabled={loading} className="bg-white hover:bg-gray-50 text-gray-700 px-3 py-1 rounded-md text-sm font-medium shadow-sm transition-colors flex items-center gap-2 whitespace-nowrap">
+              {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              AI Fetch
+            </button>
+          </div>
+          <button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-md transition-colors whitespace-nowrap">
+            <Printer className="w-4 h-4" />
+            PDF Export
+          </button>
+        </div>
+      </header>
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* --- Editor Sidebar (Draggable Modules) --- */}
+        <aside className="w-1/3 min-w-[360px] max-w-[480px] bg-white border-r border-gray-200 flex flex-col overflow-y-auto no-print shadow-xl z-10">
+          <div className="p-4 space-y-6 pb-20">
+            
+            {error && <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm flex gap-2"><AlertCircle className="w-4 h-4 mt-0.5" />{error}</div>}
+            
+            {/* Global Settings */}
+            <div className="space-y-4 border-b border-gray-100 pb-4">
+              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                <Maximize className="w-3 h-3" /> Canvas Settings
+              </h2>
+              
+              {/* 尺寸设置 */}
+              <div className="flex gap-2">
+                {['landscape_4_3', 'landscape_16_9', 'portrait'].map(fmt => (
+                  <button key={fmt} onClick={() => { setLayoutFormat(fmt); if(fmt==='portrait') setLayoutCols(2); else if(fmt==='landscape_16_9') setLayoutCols(4); else setLayoutCols(3); }}
+                    className={`px-3 py-1.5 rounded text-xs border ${layoutFormat === fmt ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-gray-200'}`}>
+                    {fmt.replace('landscape_', 'Wide ').replace('portrait', 'A0 Vertical')}
+                  </button>
+                ))}
+              </div>
+              
+              {/* 快速模板 */}
+              <div className="space-y-2">
+                 <div className="flex items-center gap-1 text-xs text-gray-500 font-medium">
+                   <LayoutTemplate className="w-3 h-3" />
+                   <span>快速模板 (一键重置)</span>
+                 </div>
+                 <div className="flex gap-2">
+                    {Object.entries(LAYOUT_TEMPLATES).map(([key, t]) => (
+                      <button 
+                        key={key} 
+                        onClick={() => applyTemplate(key)}
+                        className="px-2 py-1.5 rounded text-xs border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors flex-1"
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                 </div>
+              </div>
+
+              {/* 主题色 & 自定义背景 */}
+              <div className="space-y-2">
+                 <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500 font-medium">主题颜色 / 自定义背景</span>
+                 </div>
+                 <div className="flex gap-2 items-center">
+                    {Object.values(THEMES).map(theme => (
+                      <button key={theme.id} onClick={() => { setActiveTheme(theme); setCustomBg(''); }}
+                        className={`w-6 h-6 rounded-full border ${activeTheme.id === theme.id && !customBg ? 'ring-2 ring-blue-400' : ''} ${theme.id==='darkMode'?'bg-slate-800':theme.headerGradient.split(' ')[0].replace('bg-','bg-')}`} 
+                        title={theme.name}
+                      />
+                    ))}
+                    <div className="w-px h-4 bg-gray-300 mx-1"></div>
+                    {/* 自定义背景色选择器 */}
+                    <div className="relative flex items-center gap-2 group">
+                      <input 
+                        type="color" 
+                        value={customBg || '#ffffff'} 
+                        onChange={(e) => setCustomBg(e.target.value)} 
+                        className="h-6 w-8 p-0 border border-gray-200 rounded cursor-pointer overflow-hidden" 
+                        title="自定义背景色"
+                      />
+                      {customBg && (
+                        <button onClick={() => setCustomBg('')} className="text-[10px] text-red-400 hover:text-red-600 underline">重置</button>
+                      )}
+                    </div>
+                 </div>
+              </div>
+            </div>
+
+            {/* Header Editor */}
+            <div className="space-y-3 border-b border-gray-100 pb-4">
+               <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2"><Type className="w-3 h-3"/> Header Info</h2>
+               
+               {/* Logo Uploads */}
+               <div className="grid grid-cols-2 gap-3 mb-2">
+                  <div className="border border-dashed border-gray-300 rounded p-2 text-center hover:bg-gray-50 cursor-pointer relative h-20 flex flex-col items-center justify-center">
+                     <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-10" accept="image/*" onChange={(e) => handleLogoUpload('left', e.target.files[0])} />
+                     {logos.left ? (
+                        <div className="relative w-full h-full flex items-center justify-center">
+                            <img src={logos.left} className="max-h-full max-w-full object-contain" alt="Left Logo" />
+                            <button onClick={(e)=>{e.preventDefault(); setLogos(prev=>({...prev, left:''}))}} className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow border border-gray-100 hover:bg-red-50 z-20"><X className="w-3 h-3 text-red-500"/></button>
+                        </div>
+                     ) : (
+                        <div className="flex flex-col items-center opacity-50">
+                           <LogoIcon className="w-4 h-4 mb-1"/>
+                           <span className="text-[10px]">左 Logo</span>
+                        </div>
+                     )}
+                  </div>
+                  <div className="border border-dashed border-gray-300 rounded p-2 text-center hover:bg-gray-50 cursor-pointer relative h-20 flex flex-col items-center justify-center">
+                     <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-10" accept="image/*" onChange={(e) => handleLogoUpload('right', e.target.files[0])} />
+                     {logos.right ? (
+                        <div className="relative w-full h-full flex items-center justify-center">
+                            <img src={logos.right} className="max-h-full max-w-full object-contain" alt="Right Logo" />
+                            <button onClick={(e)=>{e.preventDefault(); setLogos(prev=>({...prev, right:''}))}} className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow border border-gray-100 hover:bg-red-50 z-20"><X className="w-3 h-3 text-red-500"/></button>
+                        </div>
+                     ) : (
+                        <div className="flex flex-col items-center opacity-50">
+                           <LogoIcon className="w-4 h-4 mb-1"/>
+                           <span className="text-[10px]">右 Logo</span>
+                        </div>
+                     )}
+                  </div>
+               </div>
+
+               <input value={header.title} onChange={e => updateHeader('title', e.target.value)} className="w-full p-2 border rounded text-sm font-bold" placeholder="Poster Title" />
+               <input value={header.authors} onChange={e => updateHeader('authors', e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Authors" />
+               <input value={header.affiliation} onChange={e => updateHeader('affiliation', e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Affiliation" />
+            </div>
+
+            {/* Column & Block Editor */}
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2"><Layout className="w-3 h-3"/> Layout & Content</h2>
+                <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded">Drag handle to reorder</span>
+              </div>
+
+              {columns.map((col, colIndex) => (
+                <div key={colIndex} className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                  <h3 className="text-xs font-bold text-slate-500 mb-3 uppercase">Column {colIndex + 1}</h3>
+                  
+                  <div className="space-y-3 min-h-[50px]">
+                    {col.map((block, blockIndex) => (
+                      <div 
+                        key={block.id}
+                        draggable
+                        onDragStart={(e) => onDragStart(e, colIndex, blockIndex)}
+                        onDragEnter={(e) => onDragEnter(e, colIndex, blockIndex)}
+                        onDragEnd={onDragEnd}
+                        onDragOver={(e) => e.preventDefault()}
+                        className={`bg-white border rounded-md shadow-sm transition-all group ${
+                          draggedItem?.id === block.id ? 'opacity-50' : 'opacity-100'
+                        } ${dragOverItem?.colIndex === colIndex && dragOverItem?.blockIndex === blockIndex ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-200'}`}
+                      >
+                        {/* Block Header */}
+                        <div className="flex items-center justify-between p-2 bg-gray-50 border-b border-gray-100 rounded-t-md cursor-move">
+                           <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                              <GripVertical className="w-3 h-3 text-gray-400" />
+                              <span className="uppercase text-[10px] bg-gray-200 px-1 rounded text-gray-500">{block.type}</span>
+                              <input 
+                                value={block.title} 
+                                onChange={(e) => updateBlockTitle(block.id, e.target.value)}
+                                className="bg-transparent border-none outline-none w-32 focus:ring-1 focus:ring-blue-200 rounded px-1"
+                                placeholder="Section Title"
+                              />
+                           </div>
+                           <div className="flex items-center gap-1">
+                              {block.type === 'text' && (
+                                <button onClick={() => handleAIOptimize(block.id, block.content, block.title)} disabled={aiLoading[block.id]} className="p-1 hover:bg-purple-100 text-purple-600 rounded">
+                                  {aiLoading[block.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                                </button>
+                              )}
+                              <button onClick={() => removeBlock(block.id)} className="p-1 hover:bg-red-100 text-red-500 rounded"><Trash2 className="w-3 h-3" /></button>
+                           </div>
+                        </div>
+
+                        {/* Block Content */}
+                        <div className="p-2">
+                          {block.type === 'image' && (
+                            <div className="mb-2">
+                               {block.imageSrc ? (
+                                 <div className="relative group/img h-20 bg-gray-100 rounded flex items-center justify-center overflow-hidden border border-gray-200">
+                                   <img src={block.imageSrc} alt="Preview" className="h-full object-contain" />
+                                   <button onClick={() => updateBlockContent(block.id, {...block, imageSrc: ''})} className="absolute top-1 right-1 bg-white p-1 rounded-full shadow text-red-500 opacity-0 group-hover/img:opacity-100 transition-opacity"><Trash2 className="w-3 h-3"/></button>
+                                 </div>
+                               ) : (
+                                 <label className="flex flex-col items-center justify-center h-20 border-2 border-dashed border-gray-300 rounded cursor-pointer hover:bg-gray-50 transition-colors">
+                                   <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                       <Upload className="w-4 h-4 text-gray-400 mb-1" />
+                                       <p className="text-[10px] text-gray-500">Click to upload image</p>
+                                   </div>
+                                   <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(block.id, e.target.files[0])} />
+                                 </label>
+                               )}
+                            </div>
+                          )}
+                          <textarea 
+                            value={block.content} 
+                            onChange={(e) => updateBlockContent(block.id, e.target.value)}
+                            className="w-full text-xs p-2 border border-gray-200 rounded outline-none focus:border-blue-400 min-h-[60px] font-mono text-gray-600"
+                            placeholder={block.type === 'image' ? 'Image Caption...' : 'Type content here...'}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Add Buttons */}
+                  <div className="flex gap-2 mt-3">
+                    <button onClick={() => addBlock(colIndex, 'text')} className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs border border-dashed border-gray-300 rounded text-gray-500 hover:bg-white hover:border-blue-400 hover:text-blue-500 transition-all">
+                      <Plus className="w-3 h-3" /> Text
+                    </button>
+                    <button onClick={() => addBlock(colIndex, 'image')} className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs border border-dashed border-gray-300 rounded text-gray-500 hover:bg-white hover:border-green-400 hover:text-green-500 transition-all">
+                      <ImageIcon className="w-3 h-3" /> Image
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer Info */}
+            <div className="space-y-2 border-t border-gray-100 pt-4">
+                <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Footer Info</h2>
+                <textarea value={footer.acknowledgements} onChange={e => updateFooter('acknowledgements', e.target.value)} className="w-full p-2 border rounded text-xs" placeholder="Acknowledgements" />
+                <input value={footer.contact} onChange={e => updateFooter('contact', e.target.value)} className="w-full p-2 border rounded text-xs" placeholder="Contact Info" />
+            </div>
+
+          </div>
+        </aside>
+
+        {/* --- Preview Area --- */}
+        <main ref={previewContainerRef} className="flex-1 bg-slate-200 overflow-auto p-0 flex items-center justify-center relative">
+          
+          {/* Zoom Controls */}
+          <div className="fixed bottom-6 right-8 flex gap-3 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-2xl z-30 no-print border border-gray-200 items-center">
+            <button onClick={() => setScale(s => Math.max(0.02, s - 0.02))} className="hover:bg-gray-100 rounded-full p-2 text-gray-600"><ZoomOut className="w-4 h-4" /></button>
+            <span className="text-xs font-mono w-12 text-center border-l border-r border-gray-200">{Math.round(scale * 100)}%</span>
+            <button onClick={() => setScale(s => Math.min(1.0, s + 0.02))} className="hover:bg-gray-100 rounded-full p-2 text-gray-600"><ZoomIn className="w-4 h-4" /></button>
+            <div className="w-px h-4 bg-gray-300 mx-1"></div>
+            <button onClick={fitToScreen} className="flex items-center gap-2 hover:bg-blue-50 rounded-full px-3 py-1 text-blue-600 text-xs font-bold"><Maximize2 className="w-3 h-3" /> Fit</button>
+          </div>
+          
+          <div className="absolute top-4 right-8 bg-black/70 text-white px-3 py-1 rounded-full text-[10px] font-mono no-print z-20 pointer-events-none">
+            Canvas: {dims.label}
+          </div>
+
+          {/* Scale Container */}
+          <div style={{ width: `${dims.widthMm * scale}mm`, height: `${dims.heightMm * scale}mm`, transition: 'all 0.3s ease-out', margin: 'auto' }} className="relative shadow-[0_0_50px_-10px_rgba(0,0,0,0.3)]">
+            
+            {/* Real Size Content */}
+            <div className={`origin-top-left absolute top-0 left-0 ${!customBg ? activeTheme.bg : ''}`} style={{ width: `${dims.widthMm}mm`, height: `${dims.heightMm}mm`, transform: `scale(${scale})`, backgroundColor: customBg || undefined }}>
+              <div className={`w-full h-full flex flex-col ${activeTheme.font}`}>
+                
+                {/* Header */}
+                <div className={`${activeTheme.headerGradient} text-white p-12 shrink-0 relative shadow-md h-[15%] flex flex-col justify-center`}>
+                  
+                  {/* Left Logo */}
+                  <div className="absolute top-1/2 -translate-y-1/2 left-12 h-[70%] aspect-square bg-white/10 rounded-lg flex flex-col items-center justify-center border border-white/20 overflow-hidden">
+                      {logos.left ? (
+                        <img src={logos.left} className="w-full h-full object-contain p-2" alt="Left Logo" />
+                      ) : (
+                        <>
+                          <School className="w-[40%] h-[40%] text-white/50 mb-2" />
+                          <span className="text-2xl text-white/50 font-bold uppercase">Logo</span>
+                        </>
+                      )}
+                  </div>
+
+                  {/* Right Logo */}
+                  <div className="absolute top-1/2 -translate-y-1/2 right-12 h-[70%] aspect-square bg-white/10 rounded-lg flex flex-col items-center justify-center border border-white/20 overflow-hidden">
+                      {logos.right ? (
+                        <img src={logos.right} className="w-full h-full object-contain p-2" alt="Right Logo" />
+                      ) : (
+                        <>
+                          <QrCode className="w-[40%] h-[40%] text-white/50 mb-2" />
+                          <span className="text-2xl text-white/50 font-bold uppercase">QR</span>
+                        </>
+                      )}
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center text-center px-64">
+                      <h1 className="text-8xl font-black mb-6 leading-tight tracking-tight drop-shadow-md line-clamp-2">{header.title}</h1>
+                      <div className="flex flex-col gap-2">
+                        <p className="text-5xl font-medium opacity-95 line-clamp-1">{header.authors}</p>
+                        <p className="text-3xl opacity-80 font-light italic tracking-wide line-clamp-1">{header.affiliation}</p>
+                      </div>
+                  </div>
+                </div>
+
+                {/* Main Grid */}
+                <div className={`flex-1 p-16 gap-16 grid min-h-0`} style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}>
+                  {columns.map((col, colIdx) => (
+                    <div key={colIdx} className="flex flex-col gap-12 min-h-0">
+                      {col.map(block => (
+                         <div key={block.id} className={`flex flex-col rounded-xl overflow-hidden shadow-sm border-2 ${activeTheme.id === 'darkMode' ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-200'} ${block.type === 'image' ? 'flex-1' : ''}`}>
+                            <div className={`p-6 ${activeTheme.blockHeader} flex items-center justify-center shrink-0`}>
+                              <h3 className="text-5xl font-bold uppercase tracking-wider text-center">{block.title}</h3>
+                            </div>
+                            <div className={`p-10 flex-1 overflow-hidden flex flex-col ${activeTheme.id === 'darkMode' ? 'text-gray-200' : 'text-gray-800'}`}>
+                               {block.type === 'image' && (
+                                 <div className="flex-1 bg-slate-50 border border-slate-200 rounded-lg mb-8 flex items-center justify-center overflow-hidden">
+                                   {block.imageSrc ? (
+                                      <img src={block.imageSrc} className="w-full h-full object-contain" alt="Chart" />
+                                   ) : (
+                                      <div className="text-center text-slate-400">
+                                         <ImageIcon className="w-32 h-32 mx-auto mb-4 opacity-30" />
+                                         <p className="text-4xl font-medium">Image Placeholder</p>
+                                      </div>
+                                   )}
+                                 </div>
+                               )}
+                               <div className={`text-justify whitespace-pre-wrap leading-relaxed overflow-y-auto ${block.type === 'image' ? 'text-3xl max-h-[30%]' : 'text-3xl flex-1'}`}>
+                                 {block.content}
+                               </div>
+                            </div>
+                         </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Footer */}
+                <div className={`${activeTheme.blockHeader} p-8 px-16 flex items-center justify-between shrink-0 h-[8%]`}>
+                   <div className="flex flex-col gap-1 max-w-[60%]">
+                       <h4 className="text-2xl font-bold uppercase opacity-70">Acknowledgements</h4>
+                       <p className="text-2xl opacity-90 line-clamp-1">{footer.acknowledgements}</p>
+                   </div>
+                   <div className="flex flex-col items-end gap-1 text-right">
+                       <div className="flex items-center gap-3"><Mail className="w-6 h-6" /><span className="text-2xl font-bold">Contact</span></div>
+                       <p className="text-2xl opacity-90">{footer.contact}</p>
+                   </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+
+      <style>{`
+        @media print {
+          @page { size: ${dims.printSize}; margin: 0; }
+          html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; height: 100% !important; }
+          header, aside, .no-print { display: none !important; }
+          main { padding: 0 !important; margin: 0 !important; height: 100vh !important; width: 100vw !important; overflow: visible !important; display: block !important; background: white !important; }
+          main > div[style] { transform: none !important; width: ${dims.widthMm}mm !important; height: ${dims.heightMm}mm !important; margin: 0 !important; box-shadow: none !important; position: absolute !important; top: 0 !important; left: 0 !important; }
+          main > div > div[style] { transform: none !important; width: 100% !important; height: 100% !important; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
+      `}</style>
+    </div>
+  );
+}
